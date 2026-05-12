@@ -165,6 +165,8 @@ async function joinRoom() {
     el('join-error').style.display = 'none';
     L.roomCode = code;
     L.isHost   = false;
+    // Kick the game off
+    await db().ref('rooms/' + code).update({ phase: 'ranking' });
     showScreen('screen-ctrl');
     subscribeController();
   } catch(err) {
@@ -206,7 +208,7 @@ function renderHost(s) {
   el('host-reveal-area').style.display   = ['revealing','done'].includes(s.phase)   ? 'block' : 'none';
 
   if (s.phase === 'waiting') {
-    actions.innerHTML = '';
+    actions.innerHTML = `<button class="btn-host-action" onclick="hostStartRound()">START ROUND →</button>`;
 
   } else if (s.phase === 'ranking') {
     status.textContent = 'Pass the phone to ' + ranker + ' to rank secretly...';
@@ -307,6 +309,10 @@ async function hostNextRound() {
 function goSetup() {
   if (L.listener) { L.listener.off(); L.listener = null; }
   showScreen('screen-landing');
+}
+
+function hostStartRound() {
+  rp().update({ phase: 'ranking' });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -474,4 +480,3 @@ document.addEventListener('keydown', e => {
   }
   if (e.key === 'Escape') closePromptBank(null);
 });
-
