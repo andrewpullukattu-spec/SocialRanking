@@ -1,387 +1,416 @@
-// game.js — Rank It game logic
- 
+// game.js — Rank It with Firebase real-time rooms
+
 // ============================================================
-//  STATE
+//  LOCAL STATE (host only — players read from Firebase)
 // ============================================================
-const G = {
+const L = {
   players: [],
   prompts: [],
-  scores: {},           // name → number (kept but not displayed)
-  round: 1,
-  rankerIndex: 0,
-  promptIndex: 0,
-  phase: 'setup',       // setup | selecting-name | ranking | guessing-wait | guessing | reveal
-  trueRanking: [],
-  guesses: {},          // name → ordered array
+  roomCode: null,
+  isHost: false,
   myName: null,
   submitted: false,
-  rankingReady: false,
-  chosenNames: new Set(),
+  unsubscribe: null,   // Firebase listener teardown
 };
- 
-function ranker() { return G.players[G.rankerIndex % G.players.length]; }
-function prompt()  { return G.prompts[G.promptIndex % G.prompts.length]; }
-function others()  { return G.players.filter(p => p !== ranker()); }
- 
+
+// ============================================================
+//  UTILITIES
+// ============================================================
+function esc(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function roomRef(path) {
+  return window._ref(window._db, `rooms/${L.roomCode}${path ? '/' + path : ''}`);
+}
+
+function generateCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length: 5}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
 // ============================================================
 //  SETUP — PLAYERS
 // ============================================================
 function addPlayer() {
   const inp = document.getElementById('player-input');
   const name = inp.value.trim();
-  if (!name || G.players.includes(name)) { inp.focus(); return; }
-  G.players.push(name);
-  G.scores[name] = 0;
+  if (!name || L.players.includes(name)) { inp.focus(); return; }
+  L.players.push(name);
   inp.value = '';
   inp.focus();
   renderPlayerTags();
 }
- 
+
 function removePlayer(name) {
-  G.players = G.players.filter(p => p !== name);
-  delete G.scores[name];
+  L.players = L.players.filter(p => p !== name);
   renderPlayerTags();
 }
- 
+
 function renderPlayerTags() {
-  document.getElementById('player-count').textContent = G.players.length;
-  document.getElementById('player-tags').innerHTML = G.players.map(p =>
-    `<div class="tag">${p}<span class="tag-remove" onclick="removePlayer('${esc(p)}')">&times;</span></div>`
+  document.getElementById('player-count').textContent = L.players.length;
+  document.getElementById('player-tags').innerHTML = L.players.map(p =>
+    `<div class="tag">${esc(p)}<span class="tag-remove" onclick="removePlayer('${esc(p)}')">&times;</span></div>`
   ).join('');
 }
- 
+
 // ============================================================
 //  SETUP — PROMPTS
 // ============================================================
 function addPrompt() {
   const inp = document.getElementById('prompt-input');
   const text = inp.value.trim();
-  if (!text || G.prompts.includes(text)) { inp.focus(); return; }
-  G.prompts.push(text);
+  if (!text || L.prompts.includes(text)) { inp.focus(); return; }
+  L.prompts.push(text);
   inp.value = '';
   inp.focus();
   renderPromptChips();
 }
- 
+
 function removePrompt(i) {
-  G.prompts.splice(i, 1);
+  L.prompts.splice(i, 1);
   renderPromptChips();
-  renderBankButtons(); // refresh added state
+  filterBank();
 }
- 
+
 function renderPromptChips() {
-  document.getElementById('prompt-count').textContent = G.prompts.length;
-  document.getElementById('prompt-chips').innerHTML = G.prompts.map((p, i) =>
+  document.getElementById('prompt-count').textContent = L.prompts.length;
+  document.getElementById('prompt-chips').innerHTML = L.prompts.map((p, i) =>
     `<div class="prompt-chip">
       <span>${esc(p)}</span>
       <span class="prompt-chip-remove" onclick="removePrompt(${i})">&times;</span>
     </div>`
   ).join('');
 }
- 
+
 // ============================================================
-//  PROMPT BANK MODAL
+//  PROMPT BANK
 // ============================================================
 let bankFilter = '';
- 
+
 function openPromptBank() {
   document.getElementById('prompt-bank-modal').style.display = 'flex';
   document.getElementById('bank-search').value = '';
   bankFilter = '';
   renderBankCategories(PROMPT_BANK);
 }
- 
+
 function closePromptBank(e) {
   if (e && e.target !== e.currentTarget) return;
   document.getElementById('prompt-bank-modal').style.display = 'none';
 }
- 
+
 function filterBank() {
   bankFilter = document.getElementById('bank-search').value.toLowerCase();
-  const filtered = PROMPT_BANK.map(cat => ({
-    ...cat,
-    prompts: cat.prompts.filter(p => p.toLowerCase().includes(bankFilter))
-  })).filter(cat => cat.prompts.length > 0);
+  const filtered = PROMPT_BANK
+    .map(cat => ({ ...cat, prompts: cat.prompts.filter(p => p.toLowerCase().includes(bankFilter)) }))
+    .filter(cat => cat.prompts.length > 0);
   renderBankCategories(filtered);
 }
- 
+
 function renderBankCategories(cats) {
   document.getElementById('bank-categories').innerHTML = cats.map(cat =>
     `<div class="bank-category">
       <div class="bank-cat-title">${cat.category}</div>
       <div class="bank-prompts">
         ${cat.prompts.map(p => {
-          const added = G.prompts.includes(p);
+          const added = L.prompts.includes(p);
           return `<button class="bank-prompt-btn ${added ? 'added' : ''}" onclick="toggleBankPrompt('${esc(p)}')">
-            <span>${esc(p)}</span>
-            <span class="check">${added ? '✓' : '+'}</span>
+            <span>${esc(p)}</span><span class="check">${added ? '✓' : '+'}</span>
           </button>`;
         }).join('')}
       </div>
     </div>`
   ).join('');
 }
- 
-function renderBankButtons() {
-  renderBankCategories(PROMPT_BANK);
-}
- 
+
 function toggleBankPrompt(text) {
-  if (G.prompts.includes(text)) {
-    G.prompts = G.prompts.filter(p => p !== text);
-  } else {
-    G.prompts.push(text);
-  }
+  if (L.prompts.includes(text)) L.prompts = L.prompts.filter(p => p !== text);
+  else L.prompts.push(text);
   renderPromptChips();
   filterBank();
 }
- 
+
 // ============================================================
-//  START GAME
+//  START GAME (host)
 // ============================================================
-function startGame() {
-  if (G.players.length < 3) {
-    alert('Add at least 3 players to start!');
+async function startGame() {
+  if (L.players.length < 3) { alert('Add at least 3 players!'); return; }
+  if (L.prompts.length < 1) { alert('Add at least 1 prompt!'); return; }
+
+  L.roomCode = generateCode();
+  L.isHost = true;
+
+  const initialState = {
+    phase: 'picking',       // picking | ranking | guessing | reveal
+    round: 1,
+    rankerIndex: 0,
+    promptIndex: 0,
+    players: L.players,
+    prompts: L.prompts,
+    trueRanking: [],
+    guesses: {},
+    chosenNames: [],
+  };
+
+  await window._set(roomRef(), initialState);
+
+  showScreen('screen-host');
+  document.getElementById('host-room-code').textContent = L.roomCode;
+  subscribeHost();
+}
+
+// ============================================================
+//  JOIN ROOM (player)
+// ============================================================
+async function joinRoom() {
+  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  if (!code) return;
+
+  const snap = await window._get(window._ref(window._db, `rooms/${code}`));
+  if (!snap.exists()) {
+    document.getElementById('join-error').style.display = 'block';
     return;
   }
-  if (G.prompts.length < 1) {
-    alert('Add at least 1 prompt — or browse the prompt bank!');
-    return;
-  }
- 
-  G.round = 1;
-  G.rankerIndex = 0;
-  G.promptIndex = 0;
-  G.trueRanking = [];
-  G.guesses = {};
-  G.myName = null;
-  G.submitted = false;
-  G.rankingReady = false;
-  G.chosenNames = new Set();
-  G.players.forEach(p => G.scores[p] = 0);
- 
-  G.phase = 'selecting-name';
-  showScreen('ctrl');
-  showSwitcher();
-  renderController();
-  renderHost();
+
+  document.getElementById('join-error').style.display = 'none';
+  L.roomCode = code;
+  L.isHost = false;
+  L.myName = null;
+  L.submitted = false;
+
+  showScreen('screen-ctrl');
+  subscribeController();
 }
- 
-function goSetup() {
-  G.phase = 'setup';
-  document.getElementById('view-switcher').style.display = 'none';
-  showScreen('setup');
-}
- 
+
 // ============================================================
-//  VIEW SWITCHER
+//  HOST — FIREBASE LISTENER
 // ============================================================
-let currentView = 'ctrl'; // 'host' or 'ctrl'
- 
-function toggleView() {
-  if (currentView === 'ctrl') {
-    currentView = 'host';
-    showScreen('host');
-    renderHost();
-    document.getElementById('switcher-btn').textContent = '📱 CONTROLLER';
-  } else {
-    currentView = 'ctrl';
-    showScreen('ctrl');
-    renderController();
-    document.getElementById('switcher-btn').textContent = '📺 HOST SCREEN';
-  }
+function subscribeHost() {
+  if (L.unsubscribe) L.unsubscribe();
+  L.unsubscribe = window._onValue(roomRef(), snap => {
+    if (!snap.exists()) return;
+    renderHostFromState(snap.val());
+  });
 }
- 
-function showSwitcher() {
-  document.getElementById('view-switcher').style.display = 'block';
-  document.getElementById('switcher-btn').textContent = '📺 HOST SCREEN';
-  currentView = 'ctrl';
-}
- 
- 
-function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById('screen-' + name).classList.add('active');
-}
- 
-// ============================================================
-//  HOST SCREEN
-// ============================================================
-function renderHost() {
-  if (G.phase === 'setup') return;
- 
-  document.getElementById('host-round-num').textContent = G.round;
-  document.getElementById('host-ranker-name').textContent = ranker() + ' is ranking';
-  document.getElementById('host-prompt-text').textContent = prompt();
- 
+
+function renderHostFromState(s) {
+  const ranker = s.players[s.rankerIndex % s.players.length];
+  const prompt = s.prompts[s.promptIndex % s.prompts.length];
+
+  document.getElementById('host-round-num').textContent = s.round;
+  document.getElementById('host-ranker-name').textContent = ranker + ' is ranking';
+  document.getElementById('host-prompt-text').textContent = prompt;
+
   const revealEl = document.getElementById('host-reveal');
+  const promptArea = document.getElementById('host-prompt-area');
   const statusEl = document.getElementById('host-status');
   const actionsEl = document.getElementById('host-actions');
- 
+
   revealEl.style.display = 'none';
- 
-  if (G.phase === 'selecting-name' || G.phase === 'ranking') {
-    statusEl.textContent = 'Pass the phone to ' + ranker() + '...';
+  promptArea.style.display = 'block';
+
+  const guessCount = Object.keys(s.guesses || {}).length;
+  const needed = s.players.length - 1;
+
+  if (s.phase === 'picking') {
+    statusEl.textContent = `${(s.chosenNames||[]).length} of ${s.players.length} players picked their name`;
     actionsEl.innerHTML = '';
-  } else if (G.phase === 'guessing-wait' || G.phase === 'guessing') {
-    const guessCount = Object.keys(G.guesses).length;
-    const needed = others().length;
+  } else if (s.phase === 'ranking') {
+    statusEl.textContent = 'Waiting for ' + ranker + ' to submit their ranking...';
+    actionsEl.innerHTML = '';
+  } else if (s.phase === 'guessing') {
     statusEl.textContent = `${guessCount} of ${needed} guesses submitted`;
     actionsEl.innerHTML = `
-      <button class="btn-host-secondary" onclick="doReveal()">Reveal early</button>
-      <button class="btn-host-action" onclick="doReveal()">REVEAL →</button>
-    `;
-  } else if (G.phase === 'reveal') {
+      <button class="btn-host-secondary" onclick="hostReveal()">Reveal early</button>
+      <button class="btn-host-action" onclick="hostReveal()">REVEAL →</button>`;
+  } else if (s.phase === 'reveal') {
+    promptArea.style.display = 'block';
     statusEl.textContent = '';
     revealEl.style.display = 'block';
-    renderReveal();
-    const hasMore = G.prompts.length > 1 || G.round === 1;
+    document.getElementById('reveal-list').innerHTML = (s.trueRanking || []).map((name, i) =>
+      `<li class="reveal-item">
+        <span class="reveal-rank">${i+1}</span>
+        <span class="reveal-name">${esc(name)}</span>
+      </li>`
+    ).join('');
     actionsEl.innerHTML = `
       <button class="btn-host-secondary" onclick="goSetup()">← Setup</button>
-      <button class="btn-host-action" onclick="nextRound()">NEXT ROUND →</button>
-    `;
+      <button class="btn-host-action" onclick="hostNextRound()">NEXT ROUND →</button>`;
   }
- 
-  renderScoreboardPills();
-}
- 
-function renderReveal() {
-  document.getElementById('reveal-list').innerHTML = G.trueRanking.map((name, i) =>
-    `<li class="reveal-item">
-      <span class="reveal-rank">${i + 1}</span>
-      <span class="reveal-name">${esc(name)}</span>
-    </li>`
+
+  // Players joined pills
+  const chosen = s.chosenNames || [];
+  document.getElementById('scoreboard-players').innerHTML = s.players.map(p =>
+    `<div class="score-pill ${chosen.includes(p) ? 'is-ranker' : ''}">${esc(p)}</div>`
   ).join('');
 }
- 
-function renderScoreboardPills() {
-  document.getElementById('scoreboard-players').innerHTML = G.players.map(p =>
-    `<div class="score-pill ${p === ranker() ? 'is-ranker' : ''}">${esc(p)}</div>`
-  ).join('');
+
+async function hostReveal() {
+  await window._update(roomRef(), { phase: 'reveal' });
 }
- 
-function doReveal() {
-  G.phase = 'reveal';
-  renderHost();
+
+async function hostNextRound() {
+  const snap = await window._get(roomRef());
+  const s = snap.val();
+  await window._update(roomRef(), {
+    phase: 'picking',
+    round: s.round + 1,
+    rankerIndex: s.rankerIndex + 1,
+    promptIndex: s.promptIndex + 1,
+    trueRanking: [],
+    guesses: {},
+    chosenNames: [],
+  });
 }
- 
-function nextRound() {
-  G.rankerIndex++;
-  G.promptIndex++;
-  G.round++;
-  G.trueRanking = [];
-  G.guesses = {};
-  G.myName = null;
-  G.submitted = false;
-  G.rankingReady = false;
-  G.chosenNames = new Set();
-  G.phase = 'selecting-name';
- 
-  currentView = 'ctrl';
-  document.getElementById('switcher-btn').textContent = '📺 HOST SCREEN';
-  showScreen('ctrl');
-  renderController();
-  renderHost();
+
+function goSetup() {
+  if (L.unsubscribe) { L.unsubscribe(); L.unsubscribe = null; }
+  showScreen('screen-landing');
 }
- 
+
 // ============================================================
-//  CONTROLLER SCREEN
+//  CONTROLLER — FIREBASE LISTENER
 // ============================================================
-function renderController() {
-  // hide all panels
-  ['ctrl-pick-name','ctrl-ranker','ctrl-waiting-ranker','ctrl-guesser','ctrl-done']
-    .forEach(id => document.getElementById(id).style.display = 'none');
- 
-  document.getElementById('ctrl-round-pick').textContent = G.round;
- 
-  if (G.phase === 'selecting-name' || !G.myName) {
-    showCtrlPanel('ctrl-pick-name');
-    renderNameGrid();
+function subscribeController() {
+  if (L.unsubscribe) L.unsubscribe();
+  L.unsubscribe = window._onValue(roomRef(), snap => {
+    if (!snap.exists()) return;
+    renderCtrlFromState(snap.val());
+  });
+}
+
+function renderCtrlFromState(s) {
+  const ranker = s.players[s.rankerIndex % s.players.length];
+  const prompt = s.prompts[s.promptIndex % s.prompts.length];
+  const isRanker = L.myName === ranker;
+
+  // Detect round change — reset local submitted flag
+  if (s.phase === 'picking') {
+    L.submitted = false;
+    L.myName = null;
+  }
+
+  hideAllCtrlPanels();
+  document.getElementById('ctrl-round-pick').textContent = s.round;
+
+  // No name chosen yet
+  if (!L.myName) {
+    show('ctrl-pick-name');
+    document.getElementById('ctrl-name-grid').innerHTML = s.players.map(p => {
+      const taken = (s.chosenNames || []).includes(p);
+      return `<button class="name-btn ${taken ? 'used' : ''}" onclick="selectName('${esc(p)}')">${esc(p)}</button>`;
+    }).join('');
     return;
   }
- 
-  if (G.submitted) {
-    showCtrlPanel('ctrl-done');
-    document.getElementById('ctrl-done-msg').textContent =
-      G.myName === ranker() ? 'Ranking submitted!' : 'Guess submitted!';
-    return;
-  }
- 
-  if (G.myName === ranker()) {
-    showCtrlPanel('ctrl-ranker');
-    document.getElementById('ctrl-ranker-prompt').textContent = prompt();
-    buildSortable('ranker-sort-list', others());
-  } else {
-    if (!G.rankingReady) {
-      showCtrlPanel('ctrl-waiting-ranker');
-      document.getElementById('ctrl-wait-ranker-name').textContent = ranker();
+
+  // Already submitted — show done or waiting for next round
+  if (L.submitted) {
+    if (s.phase === 'reveal' || s.phase === 'picking') {
+      show('ctrl-next-round-wait');
     } else {
-      showCtrlPanel('ctrl-guesser');
-      document.getElementById('ctrl-guesser-ranker-name').textContent = ranker();
-      document.getElementById('ctrl-guesser-prompt').textContent = prompt();
-      buildSortable('guesser-sort-list', others());
+      show('ctrl-done');
+      document.getElementById('ctrl-done-msg').textContent =
+        isRanker ? 'Ranking locked in!' : 'Guess submitted!';
     }
+    return;
   }
-}
- 
-function showCtrlPanel(id) {
-  document.getElementById(id).style.display = 'flex';
-  document.getElementById(id).style.flexDirection = 'column';
-}
- 
-function renderNameGrid() {
-  document.getElementById('ctrl-name-grid').innerHTML = G.players.map(p =>
-    `<button class="name-btn ${G.chosenNames.has(p) ? 'used' : ''}" onclick="selectName('${esc(p)}')">${esc(p)}</button>`
-  ).join('');
-}
- 
-function selectName(name) {
-  G.myName = name;
-  G.chosenNames.add(name);
-  G.submitted = false;
- 
-  if (name === ranker()) {
-    G.phase = 'ranking';
+
+  if (isRanker) {
+    if (s.phase === 'ranking') {
+      show('ctrl-ranker');
+      document.getElementById('ctrl-ranker-prompt').textContent = prompt;
+      buildSortable('ranker-sort-list', s.players.filter(p => p !== ranker));
+    } else {
+      show('ctrl-done');
+      document.getElementById('ctrl-done-msg').textContent = 'Waiting...';
+    }
   } else {
-    G.phase = G.rankingReady ? 'guessing' : 'guessing-wait';
-  }
- 
-  renderController();
-  renderHost();
-}
- 
-function submitRanking() {
-  const items = document.querySelectorAll('#ranker-sort-list .sort-item');
-  G.trueRanking = Array.from(items).map(el => el.dataset.name);
-  G.rankingReady = true;
-  G.submitted = true;
-  G.phase = 'guessing';
-  renderController();
-  renderHost();
-  // Prompt other players to refresh controller
-  setTimeout(() => {
-    if (document.getElementById('ctrl-done').style.display !== 'none') {
-      document.getElementById('ctrl-done-msg').textContent = 'Ranking locked in!';
+    if (s.phase === 'picking' || s.phase === 'ranking') {
+      show('ctrl-waiting-ranker');
+      document.getElementById('ctrl-wait-ranker-name').textContent = ranker;
+    } else if (s.phase === 'guessing') {
+      show('ctrl-guesser');
+      document.getElementById('ctrl-guesser-ranker-name').textContent = ranker;
+      document.getElementById('ctrl-guesser-prompt').textContent = prompt;
+      buildSortable('guesser-sort-list', s.players.filter(p => p !== ranker));
+    } else if (s.phase === 'reveal') {
+      show('ctrl-next-round-wait');
     }
-  }, 100);
+  }
 }
- 
-function submitGuess() {
+
+async function selectName(name) {
+  const snap = await window._get(roomRef('chosenNames'));
+  let chosen = snap.val() || [];
+  if (chosen.includes(name)) return; // someone just grabbed it
+
+  L.myName = name;
+  chosen.push(name);
+  await window._update(roomRef(), { chosenNames: chosen });
+
+  // If this person IS the ranker and everyone has chosen, move to ranking
+  const stateSnap = await window._get(roomRef());
+  const s = stateSnap.val();
+  const ranker = s.players[s.rankerIndex % s.players.length];
+  if (name === ranker) {
+    await window._update(roomRef(), { phase: 'ranking' });
+  }
+}
+
+async function submitRanking() {
+  const items = document.querySelectorAll('#ranker-sort-list .sort-item');
+  const ranking = Array.from(items).map(el => el.dataset.name);
+  L.submitted = true;
+  await window._update(roomRef(), {
+    trueRanking: ranking,
+    phase: 'guessing'
+  });
+}
+
+async function submitGuess() {
   const items = document.querySelectorAll('#guesser-sort-list .sort-item');
   const guess = Array.from(items).map(el => el.dataset.name);
-  G.guesses[G.myName] = guess;
-  G.submitted = true;
-  renderController();
-  renderHost();
+  L.submitted = true;
+
+  const snap = await window._get(roomRef('guesses'));
+  const guesses = snap.val() || {};
+  guesses[L.myName] = guess;
+  await window._update(roomRef(), { guesses });
 }
- 
+
 // ============================================================
-//  DRAG & DROP SORTABLE (mouse + touch)
+//  CTRL PANEL HELPERS
+// ============================================================
+function hideAllCtrlPanels() {
+  ['ctrl-pick-name','ctrl-ranker','ctrl-waiting-ranker','ctrl-guesser','ctrl-done','ctrl-next-round-wait']
+    .forEach(id => document.getElementById(id).style.display = 'none');
+}
+
+function show(id) {
+  const el = document.getElementById(id);
+  el.style.display = 'flex';
+  el.style.flexDirection = 'column';
+}
+
+// ============================================================
+//  DRAG & DROP SORTABLE
 // ============================================================
 let dragSrc = null;
- 
+
 function buildSortable(containerId, names) {
   const container = document.getElementById(containerId);
+  // Only rebuild if names changed (avoid resetting mid-drag)
+  const existing = Array.from(container.querySelectorAll('.sort-item')).map(el => el.dataset.name);
+  if (existing.join(',') === names.join(',')) return;
+
   container.innerHTML = names.map((name, i) =>
     `<div class="sort-item" data-name="${esc(name)}" draggable="true">
       <span class="sort-handle">⠿</span>
@@ -389,9 +418,8 @@ function buildSortable(containerId, names) {
       <span class="sort-name">${esc(name)}</span>
     </div>`
   ).join('');
- 
+
   container.querySelectorAll('.sort-item').forEach(item => {
-    // Mouse drag
     item.addEventListener('dragstart', () => {
       dragSrc = item;
       setTimeout(() => item.classList.add('dragging'), 0);
@@ -411,48 +439,42 @@ function buildSortable(containerId, names) {
       item.classList.remove('drag-over');
       if (dragSrc && dragSrc !== item) {
         const all = [...container.children];
-        const si = all.indexOf(dragSrc);
-        const ti = all.indexOf(item);
-        if (si < ti) item.after(dragSrc); else item.before(dragSrc);
+        if (all.indexOf(dragSrc) < all.indexOf(item)) item.after(dragSrc);
+        else item.before(dragSrc);
         updateRankNums(container);
       }
     });
- 
-    // Touch drag
-    let touchOffsetY = 0;
-    let ghostEl = null;
- 
+
+    // Touch
+    let ghostEl = null, touchOffsetY = 0;
     item.addEventListener('touchstart', e => {
       dragSrc = item;
       const touch = e.touches[0];
       const rect = item.getBoundingClientRect();
       touchOffsetY = touch.clientY - rect.top;
- 
       ghostEl = item.cloneNode(true);
       ghostEl.style.cssText = `position:fixed;z-index:9999;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.2);`;
       document.body.appendChild(ghostEl);
       item.classList.add('dragging');
     }, { passive: true });
- 
+
     item.addEventListener('touchmove', e => {
       if (!ghostEl) return;
       const touch = e.touches[0];
       ghostEl.style.top = (touch.clientY - touchOffsetY) + 'px';
- 
       const siblings = [...container.children].filter(c => c !== dragSrc);
       for (const sib of siblings) {
-        const r = sib.getBoundingClientRect();
-        const mid = r.top + r.height / 2;
         sib.classList.remove('drag-over');
+        const r = sib.getBoundingClientRect();
         if (touch.clientY > r.top && touch.clientY < r.bottom) {
           sib.classList.add('drag-over');
-          if (touch.clientY < mid) sib.before(dragSrc);
+          if (touch.clientY < r.top + r.height / 2) sib.before(dragSrc);
           else sib.after(dragSrc);
           break;
         }
       }
     }, { passive: true });
- 
+
     item.addEventListener('touchend', () => {
       if (ghostEl) { ghostEl.remove(); ghostEl = null; }
       item.classList.remove('dragging');
@@ -461,48 +483,19 @@ function buildSortable(containerId, names) {
     });
   });
 }
- 
+
 function updateRankNums(container) {
   container.querySelectorAll('.sort-rank').forEach((el, i) => el.textContent = i + 1);
 }
- 
+
 // ============================================================
-//  KEYBOARD SHORTCUTS
+//  KEYBOARD
 // ============================================================
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
     if (document.activeElement.id === 'player-input') addPlayer();
     if (document.activeElement.id === 'prompt-input') addPrompt();
+    if (document.activeElement.id === 'join-code-input') joinRoom();
   }
   if (e.key === 'Escape') closePromptBank(null);
-  // Host shortcuts
-  if (document.getElementById('screen-host').classList.contains('active')) {
-    if (e.key === 'r' || e.key === 'R') doReveal();
-    if (e.key === 'n' || e.key === 'N') { if (G.phase === 'reveal') nextRound(); }
-  }
 });
- 
-// ============================================================
-//  UTILITY
-// ============================================================
-function esc(str) {
-  return String(str)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
-}
- 
-// Also render host button in setup for convenience
-// (tab switching between screens)
-document.addEventListener('DOMContentLoaded', () => {
-  // Wire Enter key on setup inputs explicitly
-  document.getElementById('player-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addPlayer();
-  });
-  document.getElementById('prompt-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') addPrompt();
-  });
-});
- 
