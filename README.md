@@ -1,44 +1,31 @@
 # Rank It 🎉
 
-A social party ranking game. One player secretly ranks the group — everyone else tries to guess the order.
+A real-time social party ranking game. One player secretly ranks the group — everyone else tries to guess the order.
 
 ## How to play
 
-1. **Setup** — Add all players and pick your prompts (or browse the built-in bank of 70+ prompts)
-2. **Rank** — One player grabs the phone as the Ranker and secretly drags everyone into order
-3. **Guess** — Everyone else tries to guess the exact ranking
-4. **Reveal** — See who knows the group best. Rotate rankers and repeat!
+1. **Host** opens the site and clicks **Host a Game** → adds players & prompts → hits Start
+2. A **room code** appears on the host screen (e.g. `XK4T2`)
+3. **Players** open the same URL on their phones, enter the room code, and join
+4. Each round: the **Ranker** secretly drags everyone into order, everyone else guesses
+5. Host hits **Reveal** — see who knows each other best!
 
-## Running locally
+## Tech
 
-Just open `index.html` in a browser — no build step, no dependencies.
+- **Frontend**: Vanilla HTML/CSS/JS, hosted on GitHub Pages
+- **Real-time sync**: Firebase Realtime Database (free tier)
 
 ## Hosting on GitHub Pages
 
-1. Fork or push this repo to GitHub
-2. Go to **Settings → Pages**
-3. Under *Source*, select **Deploy from a branch** → `main` → `/ (root)`
-4. Hit Save — your game will be live at `https://<your-username>.github.io/<repo-name>/`
-
-## How to use across devices
-
-Since this is a single web page, the simplest approach for a party:
-
-- **Host screen** — Open the URL on a laptop/TV browser. After setup, click through to the Host tab.
-- **Controller** — Pass one phone around. Open the same URL, go to the Controller tab. Each player picks their name before taking their turn.
-
-For a smoother experience across multiple devices on the same network, you can run a simple local server:
-
-```bash
-npx serve .
-# then open the printed URL on any device on your Wi-Fi
-```
+1. Push all files to a GitHub repo
+2. Go to **Settings → Pages → Deploy from branch → main → / (root)**
+3. Live at `https://<username>.github.io/<repo>/`
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `index.html` | All screens (setup, host, controller) |
+| `index.html` | All screens |
 | `style.css` | Styling |
-| `game.js` | Game logic |
-| `prompts.js` | 70+ built-in prompts across 6 categories |
+| `game.js` | Game logic + Firebase sync |
+| `prompts.js` | 70+ built-in prompts |
