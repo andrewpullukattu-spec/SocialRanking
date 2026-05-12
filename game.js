@@ -1,295 +1,306 @@
-// game.js — Rank It with Firebase Realtime Database (compat SDK)
+// game.js — Rank It
+// Laptop = host. One phone = controller (passed around).
+// Ranker ranks secretly → group guesses together → host reveals 1 by 1.
 
 const L = {
-  players: [],
-  prompts: [],
-  roomCode: null,
-  isHost: false,
-  myName: null,
-  submitted: false,
-  listener: null,
+  players:   [],
+  prompts:   [],
+  roomCode:  null,
+  isHost:    false,
+  listener:  null,
 };
 
-// ============================================================
-//  DB HELPERS  (compat SDK uses firebase.database())
-// ============================================================
-function db() { return window._db; }
-function roomPath(sub) {
-  return db().ref('rooms/' + L.roomCode + (sub ? '/' + sub : ''));
-}
+// ── DB helpers ──────────────────────────────────────────────
+function db()          { return window._db; }
+function rp(sub)       { return db().ref('rooms/' + L.roomCode + (sub ? '/' + sub : '')); }
 
-// ============================================================
-//  UTILS
-// ============================================================
-function esc(str) {
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+// ── Utils ───────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                  .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
-
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
-
 function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  return Array.from({length: 5}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:5}, () => c[Math.floor(Math.random()*c.length)]).join('');
 }
+function el(id) { return document.getElementById(id); }
 
-// ============================================================
-//  SETUP — PLAYERS
-// ============================================================
+// ── Setup: players ──────────────────────────────────────────
 function addPlayer() {
-  const inp = document.getElementById('player-input');
+  const inp = el('player-input');
   const name = inp.value.trim();
   if (!name || L.players.includes(name)) { inp.focus(); return; }
   L.players.push(name);
-  inp.value = '';
-  inp.focus();
+  inp.value = ''; inp.focus();
   renderPlayerTags();
 }
-
 function removePlayer(name) {
   L.players = L.players.filter(p => p !== name);
   renderPlayerTags();
 }
-
 function renderPlayerTags() {
-  document.getElementById('player-count').textContent = L.players.length;
-  document.getElementById('player-tags').innerHTML = L.players.map(p =>
+  el('player-count').textContent = L.players.length;
+  el('player-tags').innerHTML = L.players.map(p =>
     `<div class="tag">${esc(p)}<span class="tag-remove" onclick="removePlayer('${esc(p)}')">&times;</span></div>`
   ).join('');
 }
 
-// ============================================================
-//  SETUP — PROMPTS
-// ============================================================
+// ── Setup: prompts ──────────────────────────────────────────
 function addPrompt() {
-  const inp = document.getElementById('prompt-input');
+  const inp = el('prompt-input');
   const text = inp.value.trim();
   if (!text || L.prompts.includes(text)) { inp.focus(); return; }
   L.prompts.push(text);
-  inp.value = '';
-  inp.focus();
+  inp.value = ''; inp.focus();
   renderPromptChips();
 }
-
 function removePrompt(i) {
-  L.prompts.splice(i, 1);
-  renderPromptChips();
-  filterBank();
+  L.prompts.splice(i,1);
+  renderPromptChips(); filterBank();
 }
-
 function renderPromptChips() {
-  document.getElementById('prompt-count').textContent = L.prompts.length;
-  document.getElementById('prompt-chips').innerHTML = L.prompts.map((p, i) =>
-    `<div class="prompt-chip">
-      <span>${esc(p)}</span>
-      <span class="prompt-chip-remove" onclick="removePrompt(${i})">&times;</span>
-    </div>`
+  el('prompt-count').textContent = L.prompts.length;
+  el('prompt-chips').innerHTML = L.prompts.map((p,i) =>
+    `<div class="prompt-chip"><span>${esc(p)}</span>
+     <span class="prompt-chip-remove" onclick="removePrompt(${i})">&times;</span></div>`
   ).join('');
 }
 
-// ============================================================
-//  PROMPT BANK
-// ============================================================
+// ── Prompt bank ─────────────────────────────────────────────
 let bankFilter = '';
-
 function openPromptBank() {
-  document.getElementById('prompt-bank-modal').style.display = 'flex';
-  document.getElementById('bank-search').value = '';
-  bankFilter = '';
+  el('prompt-bank-modal').style.display = 'flex';
+  el('bank-search').value = ''; bankFilter = '';
   renderBankCategories(PROMPT_BANK);
 }
-
 function closePromptBank(e) {
   if (e && e.target !== e.currentTarget) return;
-  document.getElementById('prompt-bank-modal').style.display = 'none';
+  el('prompt-bank-modal').style.display = 'none';
 }
-
 function filterBank() {
-  bankFilter = document.getElementById('bank-search').value.toLowerCase();
+  bankFilter = el('bank-search').value.toLowerCase();
   const filtered = PROMPT_BANK
-    .map(cat => ({ ...cat, prompts: cat.prompts.filter(p => p.toLowerCase().includes(bankFilter)) }))
+    .map(cat => ({...cat, prompts: cat.prompts.filter(p => p.toLowerCase().includes(bankFilter))}))
     .filter(cat => cat.prompts.length > 0);
   renderBankCategories(filtered);
 }
-
 function renderBankCategories(cats) {
-  document.getElementById('bank-categories').innerHTML = cats.map(cat =>
+  el('bank-categories').innerHTML = cats.map(cat =>
     `<div class="bank-category">
       <div class="bank-cat-title">${cat.category}</div>
-      <div class="bank-prompts">
-        ${cat.prompts.map(p => {
-          const added = L.prompts.includes(p);
-          return `<button class="bank-prompt-btn ${added ? 'added' : ''}" onclick="toggleBankPrompt('${esc(p)}')">
-            <span>${esc(p)}</span><span class="check">${added ? '✓' : '+'}</span>
-          </button>`;
-        }).join('')}
-      </div>
+      <div class="bank-prompts">${cat.prompts.map(p => {
+        const added = L.prompts.includes(p);
+        return `<button class="bank-prompt-btn ${added?'added':''}" onclick="toggleBankPrompt('${esc(p)}')">
+          <span>${esc(p)}</span><span class="check">${added?'✓':'+'}</span></button>`;
+      }).join('')}</div>
     </div>`
   ).join('');
 }
-
 function toggleBankPrompt(text) {
   if (L.prompts.includes(text)) L.prompts = L.prompts.filter(p => p !== text);
   else L.prompts.push(text);
-  renderPromptChips();
-  filterBank();
+  renderPromptChips(); filterBank();
 }
 
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 //  START GAME (host)
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 async function startGame() {
   if (L.players.length < 3) { alert('Add at least 3 players!'); return; }
   if (L.prompts.length < 1) { alert('Add at least 1 prompt!'); return; }
 
-  const btn = document.getElementById('start-btn');
-  btn.textContent = 'CONNECTING...';
-  btn.disabled = true;
+  const btn = el('start-btn');
+  btn.textContent = 'CONNECTING...'; btn.disabled = true;
 
   try {
     L.roomCode = generateCode();
-    L.isHost = true;
+    L.isHost   = true;
 
-    await roomPath().set({
-      phase: 'picking',
-      round: 1,
-      rankerIndex: 0,
-      promptIndex: 0,
-      players: L.players,
-      prompts: L.prompts,
-      trueRanking: [],
-      guesses: {},
-      chosenNames: [],
+    await rp().set({
+      phase:        'waiting',   // waiting | ranking | guessing | revealing | done
+      round:        1,
+      rankerIndex:  0,
+      promptIndex:  0,
+      players:      L.players,
+      prompts:      L.prompts,
+      rankerName:   '',
+      trueRanking:  [],
+      groupGuess:   [],
+      revealedCount: 0,
     });
 
     showScreen('screen-host');
-    document.getElementById('host-room-code').textContent = L.roomCode;
+    el('host-room-code').textContent = L.roomCode;
+    el('host-big-code').textContent  = L.roomCode;
     subscribeHost();
 
   } catch (err) {
     console.error(err);
-    alert('Could not connect to Firebase:\n' + err.message);
-    btn.textContent = 'START GAME';
-    btn.disabled = false;
+    alert('Firebase error:\n' + err.message);
+    btn.textContent = 'START GAME'; btn.disabled = false;
   }
 }
 
-// ============================================================
-//  JOIN ROOM (player)
-// ============================================================
+// ═══════════════════════════════════════════════════════════
+//  JOIN ROOM (phone)
+// ═══════════════════════════════════════════════════════════
 async function joinRoom() {
-  const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+  const code = el('join-code-input').value.trim().toUpperCase();
   if (!code) return;
 
-  const btn = document.getElementById('join-btn');
-  btn.textContent = '...';
-  btn.disabled = true;
+  const btn = el('join-btn');
+  btn.textContent = '...'; btn.disabled = true;
 
   try {
     const snap = await db().ref('rooms/' + code).once('value');
     if (!snap.exists()) {
-      document.getElementById('join-error').style.display = 'block';
-      btn.textContent = '→';
-      btn.disabled = false;
+      el('join-error').style.display = 'block';
+      btn.textContent = '→'; btn.disabled = false;
       return;
     }
-
-    document.getElementById('join-error').style.display = 'none';
+    el('join-error').style.display = 'none';
     L.roomCode = code;
-    L.isHost = false;
-    L.myName = null;
-    L.submitted = false;
-
+    L.isHost   = false;
     showScreen('screen-ctrl');
     subscribeController();
-
-  } catch (err) {
-    console.error(err);
+  } catch(err) {
     alert('Could not connect:\n' + err.message);
-    btn.textContent = '→';
-    btn.disabled = false;
+    btn.textContent = '→'; btn.disabled = false;
   }
 }
 
-// ============================================================
-//  HOST — listen to Firebase
-// ============================================================
+// ═══════════════════════════════════════════════════════════
+//  HOST — Firebase listener
+// ═══════════════════════════════════════════════════════════
 function subscribeHost() {
   if (L.listener) L.listener.off();
-  L.listener = roomPath();
+  L.listener = rp();
   L.listener.on('value', snap => {
     if (!snap.exists()) return;
-    renderHostFromState(snap.val());
+    renderHost(snap.val());
   });
 }
 
-function renderHostFromState(s) {
-  const ranker = s.players[s.rankerIndex % s.players.length];
-  const prompt = s.prompts[s.promptIndex % s.prompts.length];
+function renderHost(s) {
+  const ranker  = s.players[s.rankerIndex % s.players.length];
+  const prompt  = s.prompts[s.promptIndex % s.prompts.length];
+  const actions = el('host-actions');
+  const status  = el('host-status');
 
-  document.getElementById('host-round-num').textContent = s.round;
-  document.getElementById('host-ranker-name').textContent = ranker + ' is ranking';
-  document.getElementById('host-prompt-text').textContent = prompt;
+  el('host-round-num').textContent   = s.round;
+  el('host-ranker-name').textContent = ranker + ' is ranking';
+  el('host-prompt-text').textContent = prompt;
 
-  const revealEl  = document.getElementById('host-reveal');
-  const statusEl  = document.getElementById('host-status');
-  const actionsEl = document.getElementById('host-actions');
+  // Scoreboard pills
+  el('scoreboard-players').innerHTML = s.players.map(p =>
+    `<div class="score-pill ${p === ranker ? 'is-ranker' : ''}">${esc(p)}</div>`
+  ).join('');
 
-  revealEl.style.display = 'none';
+  // Show/hide sections
+  el('host-waiting-join').style.display  = s.phase === 'waiting'  ? 'block' : 'none';
+  el('host-prompt-area').style.display   = ['ranking','guessing'].includes(s.phase) ? 'block' : 'none';
+  el('host-reveal-area').style.display   = ['revealing','done'].includes(s.phase)   ? 'block' : 'none';
 
-  const guessCount = Object.keys(s.guesses || {}).length;
-  const needed     = s.players.length - 1;
-  const chosen     = s.chosenNames || [];
+  if (s.phase === 'waiting') {
+    actions.innerHTML = '';
 
-  if (s.phase === 'picking') {
-    statusEl.textContent = chosen.length + ' of ' + s.players.length + ' players picked their name';
-    actionsEl.innerHTML = '';
   } else if (s.phase === 'ranking') {
-    statusEl.textContent = 'Waiting for ' + ranker + ' to submit their ranking...';
-    actionsEl.innerHTML = '';
+    status.textContent = 'Pass the phone to ' + ranker + ' to rank secretly...';
+    actions.innerHTML  = '';
+
   } else if (s.phase === 'guessing') {
-    statusEl.textContent = guessCount + ' of ' + needed + ' guesses submitted';
-    actionsEl.innerHTML = `
-      <button class="btn-host-secondary" onclick="hostReveal()">Reveal early</button>
-      <button class="btn-host-action" onclick="hostReveal()">REVEAL →</button>`;
-  } else if (s.phase === 'reveal') {
-    statusEl.textContent = '';
-    revealEl.style.display = 'block';
-    document.getElementById('reveal-list').innerHTML = (s.trueRanking || []).map((name, i) =>
-      `<li class="reveal-item">
-        <span class="reveal-rank">${i+1}</span>
-        <span class="reveal-name">${esc(name)}</span>
-      </li>`
-    ).join('');
-    actionsEl.innerHTML = `
+    status.textContent = 'Group is deciding their guess...';
+    actions.innerHTML  = `<button class="btn-host-action" onclick="hostStartReveal()">REVEAL →</button>`;
+
+  } else if (s.phase === 'revealing') {
+    status.textContent = '';
+    renderReveal(s);
+    const revealed = s.revealedCount || 0;
+    const total    = s.trueRanking.length;
+    if (revealed < total) {
+      actions.innerHTML = `<button class="btn-host-action" onclick="hostRevealNext()">REVEAL #${revealed+1} →</button>`;
+    } else {
+      actions.innerHTML = `
+        <button class="btn-host-secondary" onclick="goSetup()">← Setup</button>
+        <button class="btn-host-action" onclick="hostNextRound()">NEXT ROUND →</button>`;
+    }
+
+  } else if (s.phase === 'done') {
+    renderReveal(s);
+    actions.innerHTML = `
       <button class="btn-host-secondary" onclick="goSetup()">← Setup</button>
       <button class="btn-host-action" onclick="hostNextRound()">NEXT ROUND →</button>`;
   }
-
-  document.getElementById('scoreboard-players').innerHTML = s.players.map(p =>
-    `<div class="score-pill ${chosen.includes(p) ? 'is-ranker' : ''}">${esc(p)}</div>`
-  ).join('');
 }
 
-function hostReveal() {
-  roomPath().update({ phase: 'reveal' });
+function renderReveal(s) {
+  const revealed = s.revealedCount || 0;
+  const total    = s.trueRanking.length;
+  const guess    = s.groupGuess || [];
+  const list     = el('reveal-list');
+
+  // Build revealed items (bottom-up: highest rank first = position 1 at top)
+  // We reveal from position 1 downward
+  list.innerHTML = '';
+  for (let i = 0; i < revealed; i++) {
+    const name     = s.trueRanking[i];
+    const guessed  = guess[i];
+    const correct  = name === guessed;
+    const li = document.createElement('li');
+    li.className = 'reveal-item';
+    li.innerHTML = `
+      <span class="reveal-rank">${i+1}</span>
+      <span class="reveal-name">${esc(name)}</span>
+      <span class="reveal-badge ${correct ? 'correct' : 'wrong'}">${correct ? '✓ Correct' : '✗ Wrong'}</span>`;
+    list.appendChild(li);
+  }
+
+  // Next hidden slot teaser
+  const nextSlot = el('reveal-next-slot');
+  if (revealed < total) {
+    nextSlot.style.display = 'flex';
+    el('reveal-next-num').textContent = revealed + 1;
+  } else {
+    nextSlot.style.display = 'none';
+  }
+
+  // Title
+  el('reveal-title').textContent = revealed === 0 ? 'GET READY...' :
+    revealed < total ? 'THE RANKING' : '🎉 FULL RANKING';
+}
+
+async function hostStartReveal() {
+  await rp().update({ phase: 'revealing', revealedCount: 0 });
+}
+
+async function hostRevealNext() {
+  const snap    = await rp().once('value');
+  const s       = snap.val();
+  const current = s.revealedCount || 0;
+  const total   = s.trueRanking.length;
+  const next    = current + 1;
+  await rp().update({
+    revealedCount: next,
+    phase: next >= total ? 'done' : 'revealing',
+  });
 }
 
 async function hostNextRound() {
-  const snap = await roomPath().once('value');
-  const s = snap.val();
-  roomPath().update({
-    phase: 'picking',
-    round: s.round + 1,
-    rankerIndex: s.rankerIndex + 1,
-    promptIndex: s.promptIndex + 1,
-    trueRanking: [],
-    guesses: {},
-    chosenNames: [],
+  const snap = await rp().once('value');
+  const s    = snap.val();
+  await rp().update({
+    phase:         'ranking',
+    round:         s.round + 1,
+    rankerIndex:   s.rankerIndex + 1,
+    promptIndex:   s.promptIndex + 1,
+    rankerName:    '',
+    trueRanking:   [],
+    groupGuess:    [],
+    revealedCount: 0,
   });
 }
 
@@ -298,213 +309,169 @@ function goSetup() {
   showScreen('screen-landing');
 }
 
-// ============================================================
-//  CONTROLLER — listen to Firebase
-// ============================================================
+// ═══════════════════════════════════════════════════════════
+//  CONTROLLER — Firebase listener
+// ═══════════════════════════════════════════════════════════
 function subscribeController() {
   if (L.listener) L.listener.off();
-  L.listener = roomPath();
+  L.listener = rp();
   L.listener.on('value', snap => {
     if (!snap.exists()) return;
-    renderCtrlFromState(snap.val());
+    renderCtrl(snap.val());
   });
 }
 
-function renderCtrlFromState(s) {
-  const ranker   = s.players[s.rankerIndex % s.players.length];
-  const prompt   = s.prompts[s.promptIndex % s.prompts.length];
-  const isRanker = L.myName === ranker;
-  const chosen   = s.chosenNames || [];
+function hideAllCtrl() {
+  ['ctrl-idle','ctrl-ranker-pick','ctrl-ranker','ctrl-guesser','ctrl-done']
+    .forEach(id => el(id).style.display = 'none');
+}
+function showCtrl(id) {
+  const e = el(id);
+  e.style.display = 'flex';
+  e.style.flexDirection = 'column';
+}
 
-  if (s.phase === 'picking') {
-    L.submitted = false;
-    L.myName = null;
-  }
+function renderCtrl(s) {
+  const ranker = s.players[s.rankerIndex % s.players.length];
+  const prompt = s.prompts[s.promptIndex % s.prompts.length];
+  hideAllCtrl();
 
-  hideAllCtrlPanels();
-  document.getElementById('ctrl-round-pick').textContent = s.round;
-
-  if (!L.myName) {
-    show('ctrl-pick-name');
-    document.getElementById('ctrl-name-grid').innerHTML = s.players.map(p => {
-      const taken = chosen.includes(p);
-      return `<button class="name-btn ${taken ? 'used' : ''}" onclick="selectName('${esc(p)}')">${esc(p)}</button>`;
-    }).join('');
+  if (s.phase === 'waiting') {
+    showCtrl('ctrl-idle');
     return;
   }
 
-  if (L.submitted) {
-    show(s.phase === 'reveal' || s.phase === 'picking' ? 'ctrl-next-round-wait' : 'ctrl-done');
-    document.getElementById('ctrl-done-msg').textContent = isRanker ? 'Ranking locked in!' : 'Guess submitted!';
-    return;
-  }
-
-  if (isRanker) {
-    if (s.phase === 'ranking') {
-      show('ctrl-ranker');
-      document.getElementById('ctrl-ranker-prompt').textContent = prompt;
-      buildSortable('ranker-sort-list', s.players.filter(p => p !== ranker));
+  if (s.phase === 'ranking') {
+    // Has ranker been picked yet?
+    if (!s.rankerName) {
+      // Show name picker — who is the ranker this round?
+      showCtrl('ctrl-ranker-pick');
+      el('ctrl-ranker-name-grid').innerHTML = s.players.map(p =>
+        `<button class="name-btn" onclick="pickRanker('${esc(p)}')">${esc(p)}</button>`
+      ).join('');
     } else {
-      show('ctrl-done');
-      document.getElementById('ctrl-done-msg').textContent = 'Waiting...';
+      // Ranker confirmed — show ranking UI
+      showCtrl('ctrl-ranker');
+      el('ctrl-ranker-you-badge').textContent = s.rankerName + ' is ranking secretly';
+      el('ctrl-ranker-prompt').textContent = prompt;
+      buildSortable('ranker-sort-list', s.players.filter(p => p !== s.rankerName));
     }
-  } else {
-    if (s.phase === 'picking' || s.phase === 'ranking') {
-      show('ctrl-waiting-ranker');
-      document.getElementById('ctrl-wait-ranker-name').textContent = ranker;
-    } else if (s.phase === 'guessing') {
-      show('ctrl-guesser');
-      document.getElementById('ctrl-guesser-ranker-name').textContent = ranker;
-      document.getElementById('ctrl-guesser-prompt').textContent = prompt;
-      buildSortable('guesser-sort-list', s.players.filter(p => p !== ranker));
-    } else if (s.phase === 'reveal') {
-      show('ctrl-next-round-wait');
-    }
+    return;
+  }
+
+  if (s.phase === 'guessing') {
+    showCtrl('ctrl-guesser');
+    el('ctrl-guess-badge').textContent = 'Guess ' + ranker + "'s ranking as a group";
+    el('ctrl-guesser-prompt').textContent = prompt;
+    buildSortable('guesser-sort-list', s.players.filter(p => p !== ranker));
+    return;
+  }
+
+  if (s.phase === 'revealing' || s.phase === 'done') {
+    showCtrl('ctrl-done');
+    el('ctrl-done-msg').textContent = s.phase === 'done' ? 'Round over!' : 'Watch the big screen!';
+    return;
   }
 }
 
-async function selectName(name) {
-  const snap = await roomPath('chosenNames').once('value');
-  let chosen = snap.val() || [];
-  if (chosen.includes(name)) return;
-
-  L.myName = name;
-  chosen.push(name);
-
-  const stateSnap = await roomPath().once('value');
-  const s = stateSnap.val();
-  const ranker = s.players[s.rankerIndex % s.players.length];
-  const updates = { chosenNames: chosen };
-  if (name === ranker) updates.phase = 'ranking';
-  await roomPath().update(updates);
+async function pickRanker(name) {
+  await rp().update({ rankerName: name });
 }
 
 async function submitRanking() {
+  const snap = await rp().once('value');
+  const s    = snap.val();
   const items = document.querySelectorAll('#ranker-sort-list .sort-item');
-  const ranking = Array.from(items).map(el => el.dataset.name);
-  L.submitted = true;
-  await roomPath().update({ trueRanking: ranking, phase: 'guessing' });
+  const ranking = Array.from(items).map(e => e.dataset.name);
+  await rp().update({ trueRanking: ranking, phase: 'guessing' });
 }
 
 async function submitGuess() {
   const items = document.querySelectorAll('#guesser-sort-list .sort-item');
-  const guess = Array.from(items).map(el => el.dataset.name);
-  L.submitted = true;
-  const snap = await roomPath('guesses').once('value');
-  const guesses = snap.val() || {};
-  guesses[L.myName] = guess;
-  await roomPath().update({ guesses });
+  const guess = Array.from(items).map(e => e.dataset.name);
+  await rp().update({ groupGuess: guess, phase: 'revealing', revealedCount: 0 });
 }
 
-// ============================================================
-//  CTRL PANEL HELPERS
-// ============================================================
-function hideAllCtrlPanels() {
-  ['ctrl-pick-name','ctrl-ranker','ctrl-waiting-ranker','ctrl-guesser','ctrl-done','ctrl-next-round-wait']
-    .forEach(id => document.getElementById(id).style.display = 'none');
-}
-
-function show(id) {
-  const el = document.getElementById(id);
-  el.style.display = 'flex';
-  el.style.flexDirection = 'column';
-}
-
-// ============================================================
-//  DRAG & DROP SORTABLE (mouse + touch)
-// ============================================================
+// ═══════════════════════════════════════════════════════════
+//  DRAG & DROP SORTABLE
+// ═══════════════════════════════════════════════════════════
 let dragSrc = null;
 
 function buildSortable(containerId, names) {
-  const container = document.getElementById(containerId);
-  const existing = Array.from(container.querySelectorAll('.sort-item')).map(el => el.dataset.name);
-  if (existing.join(',') === names.join(',')) return;
+  const container = el(containerId);
+  const existing  = Array.from(container.querySelectorAll('.sort-item')).map(e => e.dataset.name);
+  if (existing.join(',') === names.join(',')) return; // don't rebuild if same
 
   container.innerHTML = names.map((name, i) =>
     `<div class="sort-item" data-name="${esc(name)}" draggable="true">
       <span class="sort-handle">⠿</span>
-      <span class="sort-rank">${i + 1}</span>
+      <span class="sort-rank">${i+1}</span>
       <span class="sort-name">${esc(name)}</span>
     </div>`
   ).join('');
 
   container.querySelectorAll('.sort-item').forEach(item => {
-    item.addEventListener('dragstart', () => {
-      dragSrc = item;
-      setTimeout(() => item.classList.add('dragging'), 0);
-    });
-    item.addEventListener('dragend', () => {
-      item.classList.remove('dragging');
-      updateRankNums(container);
-    });
-    item.addEventListener('dragover', e => {
-      e.preventDefault();
-      container.querySelectorAll('.sort-item').forEach(el => el.classList.remove('drag-over'));
-      item.classList.add('drag-over');
-    });
-    item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+    // Mouse
+    item.addEventListener('dragstart', () => { dragSrc = item; setTimeout(() => item.classList.add('dragging'), 0); });
+    item.addEventListener('dragend',   () => { item.classList.remove('dragging'); updateNums(container); });
+    item.addEventListener('dragover',  e  => { e.preventDefault(); container.querySelectorAll('.sort-item').forEach(el => el.classList.remove('drag-over')); item.classList.add('drag-over'); });
+    item.addEventListener('dragleave', ()  => item.classList.remove('drag-over'));
     item.addEventListener('drop', e => {
-      e.preventDefault();
-      item.classList.remove('drag-over');
+      e.preventDefault(); item.classList.remove('drag-over');
       if (dragSrc && dragSrc !== item) {
         const all = [...container.children];
-        if (all.indexOf(dragSrc) < all.indexOf(item)) item.after(dragSrc);
-        else item.before(dragSrc);
-        updateRankNums(container);
+        if (all.indexOf(dragSrc) < all.indexOf(item)) item.after(dragSrc); else item.before(dragSrc);
+        updateNums(container);
       }
     });
 
-    // Touch support
-    let ghostEl = null, touchOffsetY = 0;
+    // Touch
+    let ghost = null, oy = 0;
     item.addEventListener('touchstart', e => {
       dragSrc = item;
-      const touch = e.touches[0];
-      const rect = item.getBoundingClientRect();
-      touchOffsetY = touch.clientY - rect.top;
-      ghostEl = item.cloneNode(true);
-      ghostEl.style.cssText = `position:fixed;z-index:9999;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.18);`;
-      document.body.appendChild(ghostEl);
+      const t = e.touches[0], r = item.getBoundingClientRect();
+      oy = t.clientY - r.top;
+      ghost = item.cloneNode(true);
+      ghost.style.cssText = `position:fixed;z-index:9999;left:${r.left}px;top:${r.top}px;width:${r.width}px;opacity:0.85;pointer-events:none;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.2);`;
+      document.body.appendChild(ghost);
       item.classList.add('dragging');
-    }, { passive: true });
+    }, {passive:true});
 
     item.addEventListener('touchmove', e => {
-      if (!ghostEl) return;
-      const touch = e.touches[0];
-      ghostEl.style.top = (touch.clientY - touchOffsetY) + 'px';
-      const siblings = [...container.children].filter(c => c !== dragSrc);
-      for (const sib of siblings) {
+      if (!ghost) return;
+      ghost.style.top = (e.touches[0].clientY - oy) + 'px';
+      const sibs = [...container.children].filter(c => c !== dragSrc);
+      for (const sib of sibs) {
         sib.classList.remove('drag-over');
         const r = sib.getBoundingClientRect();
-        if (touch.clientY > r.top && touch.clientY < r.bottom) {
+        if (e.touches[0].clientY > r.top && e.touches[0].clientY < r.bottom) {
           sib.classList.add('drag-over');
-          if (touch.clientY < r.top + r.height / 2) sib.before(dragSrc);
-          else sib.after(dragSrc);
+          if (e.touches[0].clientY < r.top + r.height/2) sib.before(dragSrc); else sib.after(dragSrc);
           break;
         }
       }
-    }, { passive: true });
+    }, {passive:true});
 
     item.addEventListener('touchend', () => {
-      if (ghostEl) { ghostEl.remove(); ghostEl = null; }
+      if (ghost) { ghost.remove(); ghost = null; }
       item.classList.remove('dragging');
-      container.querySelectorAll('.sort-item').forEach(el => el.classList.remove('drag-over'));
-      updateRankNums(container);
+      container.querySelectorAll('.sort-item').forEach(e => e.classList.remove('drag-over'));
+      updateNums(container);
     });
   });
 }
 
-function updateRankNums(container) {
-  container.querySelectorAll('.sort-rank').forEach((el, i) => el.textContent = i + 1);
+function updateNums(container) {
+  container.querySelectorAll('.sort-rank').forEach((e, i) => e.textContent = i+1);
 }
 
-// ============================================================
-//  KEYBOARD
-// ============================================================
+// ── Keyboard shortcuts ──────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter') {
-    if (document.activeElement.id === 'player-input') addPlayer();
-    if (document.activeElement.id === 'prompt-input') addPrompt();
+    if (document.activeElement.id === 'player-input')    addPlayer();
+    if (document.activeElement.id === 'prompt-input')    addPrompt();
     if (document.activeElement.id === 'join-code-input') joinRoom();
   }
   if (e.key === 'Escape') closePromptBank(null);
 });
+
