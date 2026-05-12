@@ -1,810 +1,158 @@
-/* ============================================================
-   RANK IT — Party Game Stylesheet
-   Aesthetic: Bold editorial · black & white · punchy type
-   ============================================================ */
-
-:root {
-  --black: #0a0a0a;
-  --white: #f5f2eb;
-  --cream: #ede9df;
-  --accent: #e8ff47;
-  --accent-dark: #c8df20;
-  --gray: #888;
-  --light-gray: #ddd9cf;
-  --font-display: 'Bebas Neue', sans-serif;
-  --font-body: 'DM Sans', sans-serif;
-  --radius: 12px;
-  --radius-sm: 6px;
-}
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-html { font-size: 16px; }
-
-body {
-  background: var(--white);
-  color: var(--black);
-  font-family: var(--font-body);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
-/* ============ SCREENS ============ */
-.screen { display: none; min-height: 100vh; }
-.screen.active { display: block; }
-
-/* ============ SETUP SCREEN ============ */
-.setup-layout {
-  max-width: 580px;
-  margin: 0 auto;
-  padding: 2rem 1.25rem 4rem;
-}
-
-.setup-hero {
-  text-align: center;
-  padding: 3rem 0 2rem;
-  border-bottom: 2px solid var(--black);
-  margin-bottom: 2rem;
-}
-
-.logo {
-  font-family: var(--font-display);
-  font-size: clamp(72px, 18vw, 110px);
-  letter-spacing: 0.04em;
-  line-height: 0.9;
-  color: var(--black);
-}
-
-.tagline {
-  font-size: 13px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--gray);
-  margin-top: 0.75rem;
-}
-
-.form-section {
-  margin-bottom: 2rem;
-}
-
-.form-section h2 {
-  font-family: var(--font-display);
-  font-size: 28px;
-  letter-spacing: 0.06em;
-  margin-bottom: 0.75rem;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.count {
-  font-family: var(--font-body);
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--black);
-  color: var(--accent);
-  padding: 2px 8px;
-  border-radius: 20px;
-}
-
-.input-row {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.input-row input {
-  flex: 1;
-  padding: 12px 14px;
-  border: 1.5px solid var(--light-gray);
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  font-family: var(--font-body);
-  background: var(--cream);
-  color: var(--black);
-  outline: none;
-  transition: border-color 0.15s;
-}
-
-.input-row input:focus {
-  border-color: var(--black);
-}
-
-.btn-add {
-  width: 46px;
-  height: 46px;
-  background: var(--black);
-  color: var(--accent);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-size: 22px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: transform 0.1s;
-}
-.btn-add:active { transform: scale(0.94); }
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-}
-
-.tag {
-  background: var(--black);
-  color: var(--white);
-  padding: 6px 14px;
-  border-radius: 20px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tag-remove {
-  cursor: pointer;
-  opacity: 0.5;
-  font-size: 16px;
-  line-height: 1;
-  transition: opacity 0.15s;
-}
-.tag-remove:hover { opacity: 1; }
-
-.prompt-bank-row {
-  margin-bottom: 10px;
-}
-
-.btn-ghost {
-  background: none;
-  border: 1.5px solid var(--black);
-  border-radius: var(--radius-sm);
-  padding: 8px 16px;
-  font-size: 13px;
-  font-family: var(--font-body);
-  cursor: pointer;
-  letter-spacing: 0.03em;
-  transition: background 0.15s, color 0.15s;
-}
-.btn-ghost:hover { background: var(--black); color: var(--white); }
-
-.btn-ghost-sm {
-  background: none;
-  border: 1px solid rgba(255,255,255,0.3);
-  border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  font-size: 13px;
-  font-family: var(--font-body);
-  cursor: pointer;
-  color: rgba(255,255,255,0.7);
-  transition: color 0.15s, border-color 0.15s;
-}
-.btn-ghost-sm:hover { color: #fff; border-color: #fff; }
-
-.prompt-chips {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.prompt-chip {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--cream);
-  border: 1px solid var(--light-gray);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  gap: 10px;
-}
-
-.prompt-chip-remove {
-  cursor: pointer;
-  opacity: 0.4;
-  font-size: 18px;
-  flex-shrink: 0;
-  transition: opacity 0.15s;
-}
-.prompt-chip-remove:hover { opacity: 1; }
-
-.how-to {
-  background: var(--cream);
-  border: 1.5px solid var(--light-gray);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  margin-bottom: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.how-step {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.step-n {
-  width: 22px;
-  height: 22px;
-  background: var(--black);
-  color: var(--accent);
-  border-radius: 50%;
-  font-size: 12px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.btn-start {
-  width: 100%;
-  padding: 18px;
-  background: var(--black);
-  color: var(--accent);
-  border: none;
-  border-radius: var(--radius);
-  font-family: var(--font-display);
-  font-size: 32px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition: transform 0.1s, background 0.15s;
-}
-.btn-start:hover { background: #1a1a1a; }
-.btn-start:active { transform: scale(0.98); }
-
-/* ============ MODAL ============ */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.6);
-  z-index: 100;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  backdrop-filter: blur(2px);
-}
-
-@media (min-width: 600px) {
-  .modal-overlay { align-items: center; }
-}
-
-.modal-box {
-  background: var(--white);
-  border-radius: var(--radius) var(--radius) 0 0;
-  width: 100%;
-  max-width: 600px;
-  max-height: 85vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-@media (min-width: 600px) {
-  .modal-box { border-radius: var(--radius); max-height: 80vh; }
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--light-gray);
-}
-
-.modal-header h2 {
-  font-family: var(--font-display);
-  font-size: 26px;
-  letter-spacing: 0.06em;
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: var(--gray);
-  padding: 4px;
-  line-height: 1;
-}
-
-.modal-search {
-  padding: 1rem 1.5rem 0.5rem;
-}
-
-.modal-search input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1.5px solid var(--light-gray);
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  font-family: var(--font-body);
-  background: var(--cream);
-  outline: none;
-}
-.modal-search input:focus { border-color: var(--black); }
-
-.bank-categories {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0.75rem 1.5rem 1.5rem;
-}
-
-.bank-category {
-  margin-bottom: 1.5rem;
-}
-
-.bank-cat-title {
-  font-size: 11px;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--gray);
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.bank-prompts {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.bank-prompt-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--cream);
-  border: 1px solid var(--light-gray);
-  border-radius: var(--radius-sm);
-  font-size: 14px;
-  font-family: var(--font-body);
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.12s, border-color 0.12s;
-  gap: 10px;
-}
-
-.bank-prompt-btn:hover { background: var(--black); color: var(--white); border-color: var(--black); }
-.bank-prompt-btn.added { background: var(--black); color: var(--accent); border-color: var(--black); pointer-events: none; }
-.bank-prompt-btn .check { font-size: 16px; flex-shrink: 0; }
-
-/* ============ HOST SCREEN ============ */
-#screen-host {
-  background: var(--black);
-  color: var(--white);
-  display: none;
-  flex-direction: column;
-}
-#screen-host.active { display: flex; }
-
-.host-layout {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-  padding: 1.5rem 2rem;
-}
-
-.host-top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-}
-
-.host-logo {
-  font-family: var(--font-display);
-  font-size: 32px;
-  letter-spacing: 0.08em;
-  color: var(--accent);
-}
-
-.host-round-info {
-  font-size: 14px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.5);
-}
-
-.host-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
-
-.host-prompt-area {
-  max-width: 780px;
-  width: 100%;
-}
-
-.ranker-pill {
-  display: inline-block;
-  border: 1px solid rgba(255,255,255,0.3);
-  border-radius: 20px;
-  padding: 8px 22px;
-  font-size: 15px;
-  color: rgba(255,255,255,0.7);
-  margin-bottom: 1.5rem;
-  letter-spacing: 0.04em;
-}
-
-.host-prompt-text {
-  font-family: var(--font-display);
-  font-size: clamp(42px, 7vw, 88px);
-  letter-spacing: 0.03em;
-  line-height: 1.05;
-  color: var(--white);
-  margin-bottom: 1.5rem;
-}
-
-.host-status {
-  font-size: 15px;
-  color: rgba(255,255,255,0.45);
-  letter-spacing: 0.05em;
-}
-
-.host-reveal {
-  width: 100%;
-  max-width: 560px;
-}
-
-.reveal-title {
-  font-family: var(--font-display);
-  font-size: 18px;
-  letter-spacing: 0.2em;
-  color: var(--accent);
-  margin-bottom: 1rem;
-}
-
-.reveal-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.reveal-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 20px;
-  background: rgba(255,255,255,0.06);
-  border-radius: var(--radius-sm);
-  animation: slideIn 0.3s ease both;
-}
-
-.reveal-item:nth-child(1) { animation-delay: 0.05s; }
-.reveal-item:nth-child(2) { animation-delay: 0.15s; }
-.reveal-item:nth-child(3) { animation-delay: 0.25s; }
-.reveal-item:nth-child(4) { animation-delay: 0.35s; }
-.reveal-item:nth-child(5) { animation-delay: 0.45s; }
-.reveal-item:nth-child(6) { animation-delay: 0.55s; }
-.reveal-item:nth-child(7) { animation-delay: 0.65s; }
-.reveal-item:nth-child(8) { animation-delay: 0.75s; }
-.reveal-item:nth-child(9) { animation-delay: 0.85s; }
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-.reveal-rank {
-  font-family: var(--font-display);
-  font-size: 28px;
-  color: var(--accent);
-  width: 36px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.reveal-name {
-  font-size: 20px;
-  font-weight: 500;
-}
-
-.host-footer {
-  border-top: 1px solid rgba(255,255,255,0.1);
-  padding-top: 1.25rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.host-scoreboard-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.scoreboard-label {
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  color: rgba(255,255,255,0.35);
-}
-
-.scoreboard-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.score-pill {
-  background: rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: 6px 14px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.score-pill.is-ranker {
-  background: var(--accent);
-  color: var(--black);
-  font-weight: 600;
-}
-
-.host-actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.btn-host-action {
-  padding: 12px 28px;
-  background: var(--accent);
-  color: var(--black);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: var(--font-display);
-  font-size: 22px;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: transform 0.1s, opacity 0.15s;
-}
-.btn-host-action:hover { opacity: 0.88; }
-.btn-host-action:active { transform: scale(0.97); }
-
-.btn-host-secondary {
-  padding: 12px 20px;
-  background: transparent;
-  color: rgba(255,255,255,0.5);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-.btn-host-secondary:hover { color: #fff; border-color: rgba(255,255,255,0.5); }
-
-/* ============ CONTROLLER SCREEN ============ */
-#screen-ctrl {
-  background: var(--white);
-  min-height: 100vh;
-  display: none;
-}
-#screen-ctrl.active { display: block; }
-
-.ctrl-layout {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 2rem 1.25rem 3rem;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.ctrl-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-}
-
-.ctrl-logo {
-  font-family: var(--font-display);
-  font-size: 52px;
-  letter-spacing: 0.06em;
-  color: var(--black);
-  margin-bottom: 0.25rem;
-}
-
-.ctrl-subtitle {
-  font-size: 15px;
-  color: var(--gray);
-  margin-bottom: 1.75rem;
-}
-
-.ctrl-name-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-.name-btn {
-  padding: 16px 12px;
-  background: var(--cream);
-  border: 1.5px solid var(--light-gray);
-  border-radius: var(--radius);
-  font-size: 16px;
-  font-family: var(--font-body);
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, transform 0.1s;
-  text-align: center;
-}
-.name-btn:hover { background: var(--black); color: var(--white); border-color: var(--black); }
-.name-btn:active { transform: scale(0.96); }
-.name-btn.used { opacity: 0.35; pointer-events: none; }
-
-.ctrl-top {
-  margin-bottom: 1.25rem;
-}
-
-.your-badge {
-  display: inline-block;
-  font-size: 12px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--gray);
-  margin-bottom: 0.5rem;
-}
-
-.ctrl-prompt {
-  font-family: var(--font-display);
-  font-size: clamp(28px, 7vw, 42px);
-  letter-spacing: 0.03em;
-  line-height: 1.1;
-  color: var(--black);
-}
-
-.drag-hint {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--gray);
-  margin-bottom: 0.75rem;
-}
-
-/* ============ SORTABLE LIST ============ */
-.sort-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 1.5rem;
-  flex: 1;
-}
-
-.sort-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  background: var(--cream);
-  border: 1.5px solid var(--light-gray);
-  border-radius: var(--radius);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
-}
-.sort-item:active { cursor: grabbing; }
-.sort-item.dragging { opacity: 0.3; }
-.sort-item.drag-over { border-color: var(--black); background: var(--white); box-shadow: 0 2px 12px rgba(0,0,0,0.12); }
-
-.sort-rank {
-  font-family: var(--font-display);
-  font-size: 22px;
-  color: var(--gray);
-  width: 28px;
-  text-align: right;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.sort-name {
-  font-size: 17px;
-  font-weight: 500;
-  flex: 1;
-}
-
-.sort-handle {
-  color: var(--light-gray);
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.btn-submit {
-  width: 100%;
-  padding: 18px;
-  background: var(--black);
-  color: var(--accent);
-  border: none;
-  border-radius: var(--radius);
-  font-family: var(--font-display);
-  font-size: 26px;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  transition: transform 0.1s, opacity 0.15s;
-  margin-top: auto;
-}
-.btn-submit:hover { opacity: 0.88; }
-.btn-submit:active { transform: scale(0.98); }
-
-/* Waiting & done states */
-.waiting-icon, .done-icon {
-  font-size: 56px;
-  margin-bottom: 1rem;
-  margin-top: 3rem;
-  text-align: center;
-}
-
-.waiting-msg, .done-msg {
-  font-size: 20px;
-  font-weight: 500;
-  text-align: center;
-  line-height: 1.5;
-  margin-bottom: 0.5rem;
-}
-
-.done-sub {
-  font-size: 14px;
-  color: var(--gray);
-  text-align: center;
-}
-
-.done-icon {
-  width: 72px;
-  height: 72px;
-  background: var(--black);
-  color: var(--accent);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  margin: 3rem auto 1rem;
-}
-
-/* ============ FLOATING VIEW SWITCHER ============ */
-#view-switcher {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 999;
-}
-
-#switcher-btn {
-  padding: 12px 22px;
-  background: var(--accent);
-  color: var(--black);
-  border: none;
-  border-radius: 30px;
-  font-family: var(--font-display);
-  font-size: 18px;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
-  transition: transform 0.1s, opacity 0.15s;
-  white-space: nowrap;
-}
-#switcher-btn:hover { opacity: 0.88; }
-#switcher-btn:active { transform: scale(0.96); }
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--light-gray); border-radius: 10px; }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rank It</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ============ SETUP SCREEN ============ -->
+  <div id="screen-setup" class="screen active">
+    <div class="setup-layout">
+      <div class="setup-hero">
+        <div class="logo">RANK IT</div>
+        <p class="tagline">The social ranking game</p>
+      </div>
+
+      <div class="setup-form">
+        <section class="form-section">
+          <h2>Players <span class="count" id="player-count">0</span></h2>
+          <div class="input-row">
+            <input type="text" id="player-input" placeholder="Enter a name..." autocomplete="off" />
+            <button class="btn-add" onclick="addPlayer()">+</button>
+          </div>
+          <div class="tag-list" id="player-tags"></div>
+        </section>
+
+        <section class="form-section">
+          <h2>Prompts <span class="count" id="prompt-count">0</span></h2>
+          <div class="input-row">
+            <input type="text" id="prompt-input" placeholder="e.g. Rank by sense of humour..." autocomplete="off" />
+            <button class="btn-add" onclick="addPrompt()">+</button>
+          </div>
+          <div class="prompt-bank-row">
+            <button class="btn-ghost" onclick="openPromptBank()">Browse prompt bank →</button>
+          </div>
+          <div class="prompt-chips" id="prompt-chips"></div>
+        </section>
+
+        <div class="how-to">
+          <div class="how-step"><span class="step-n">1</span><span>One player grabs the phone as the <strong>Ranker</strong></span></div>
+          <div class="how-step"><span class="step-n">2</span><span>They secretly rank everyone else using the prompt on screen</span></div>
+          <div class="how-step"><span class="step-n">3</span><span>The rest try to guess the exact ranking</span></div>
+          <div class="how-step"><span class="step-n">4</span><span>Reveal together — see who knows each other best</span></div>
+        </div>
+
+        <button class="btn-start" onclick="startGame()">START GAME</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PROMPT BANK MODAL ============ -->
+  <div id="prompt-bank-modal" class="modal-overlay" style="display:none" onclick="closePromptBank(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>Prompt Bank</h2>
+        <button class="modal-close" onclick="closePromptBank(null)">✕</button>
+      </div>
+      <div class="modal-search">
+        <input type="text" id="bank-search" placeholder="Search prompts..." oninput="filterBank()" />
+      </div>
+      <div class="bank-categories" id="bank-categories"></div>
+    </div>
+  </div>
+
+  <!-- ============ HOST SCREEN ============ -->
+  <div id="screen-host" class="screen">
+    <div class="host-layout">
+      <div class="host-top-bar">
+        <div class="host-logo">RANK IT</div>
+        <div class="host-round-info">Round <span id="host-round-num">1</span></div>
+        <button class="btn-ghost-sm" onclick="goSetup()">← Setup</button>
+      </div>
+
+      <div class="host-main">
+        <div class="host-prompt-area">
+          <div class="ranker-pill" id="host-ranker-name">— is ranking</div>
+          <div class="host-prompt-text" id="host-prompt-text">—</div>
+          <div class="host-status" id="host-status">Waiting for ranker to submit...</div>
+        </div>
+
+        <div class="host-reveal" id="host-reveal" style="display:none">
+          <div class="reveal-title">THE RANKING</div>
+          <ol class="reveal-list" id="reveal-list"></ol>
+        </div>
+      </div>
+
+      <div class="host-footer">
+        <div class="host-scoreboard-wrap">
+          <div class="scoreboard-label">PLAYERS</div>
+          <div class="scoreboard-row" id="scoreboard-players"></div>
+        </div>
+        <div class="host-actions" id="host-actions"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CONTROLLER SCREEN ============ -->
+  <div id="screen-ctrl" class="screen">
+    <div class="ctrl-layout">
+
+      <!-- Pick your name -->
+      <div class="ctrl-panel" id="ctrl-pick-name">
+        <div class="ctrl-logo">RANK IT</div>
+        <p class="ctrl-subtitle">Round <span id="ctrl-round-pick">1</span> — Who are you?</p>
+        <div class="ctrl-name-grid" id="ctrl-name-grid"></div>
+      </div>
+
+      <!-- Ranker view -->
+      <div class="ctrl-panel" id="ctrl-ranker" style="display:none">
+        <div class="ctrl-top">
+          <div class="your-badge">You're ranking <i>everyone</i></div>
+          <div class="ctrl-prompt" id="ctrl-ranker-prompt"></div>
+        </div>
+        <p class="drag-hint">Drag to rank · #1 is top</p>
+        <div class="sort-list" id="ranker-sort-list"></div>
+        <button class="btn-submit" onclick="submitRanking()">SUBMIT RANKING</button>
+      </div>
+
+      <!-- Guesser waiting for ranker -->
+      <div class="ctrl-panel" id="ctrl-waiting-ranker" style="display:none">
+        <div class="waiting-icon">⏳</div>
+        <p class="waiting-msg">Waiting for <strong id="ctrl-wait-ranker-name"></strong> to submit their ranking...</p>
+      </div>
+
+      <!-- Guesser view -->
+      <div class="ctrl-panel" id="ctrl-guesser" style="display:none">
+        <div class="ctrl-top">
+          <div class="your-badge">Guess <strong id="ctrl-guesser-ranker-name"></strong>'s ranking</div>
+          <div class="ctrl-prompt" id="ctrl-guesser-prompt"></div>
+        </div>
+        <p class="drag-hint">Drag to reorder · who did they rank #1?</p>
+        <div class="sort-list" id="guesser-sort-list"></div>
+        <button class="btn-submit" onclick="submitGuess()">SUBMIT GUESS</button>
+      </div>
+
+      <!-- Submitted -->
+      <div class="ctrl-panel" id="ctrl-done" style="display:none">
+        <div class="done-icon">✓</div>
+        <p class="done-msg" id="ctrl-done-msg">Submitted!</p>
+        <p class="done-sub">Check the host screen</p>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ============ FLOATING VIEW SWITCHER ============ -->
+  <div id="view-switcher" style="display:none">
+    <button id="switcher-btn" onclick="toggleView()"></button>
+  </div>
+
+  <script src="prompts.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
