@@ -808,3 +808,39 @@ body {
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--light-gray); border-radius: 10px; }
+
+/* ============ SCROLLBAR ============ */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--light-gray); border-radius: 10px; }
+
+/* ============ JOIN / LANDING ============ */
+.name-btn.used {
+  opacity: 0.3;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+/* ── Reveal badges ── */
+.reveal-badge {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.reveal-badge.correct { background: #EAF3DE; color: #3B6D11; }
+.reveal-badge.wrong   { background: #FCEBEB; color: #A32D2D; }
+
+/* Hidden next slot teaser */
+.reveal-hidden {
+  opacity: 0.3;
+  border: 1.5px dashed rgba(255,255,255,0.2) !important;
+  background: transparent !important;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--light-gray); border-radius: 10px; }
