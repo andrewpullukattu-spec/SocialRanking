@@ -139,32 +139,54 @@ function toggleBankPrompt(text) {
 }
 
 // ============================================================
+//  FIREBASE READY GUARD
+// ============================================================
+function waitForFirebase() {
+  return new Promise(resolve => {
+    if (window._db) { resolve(); return; }
+    window.addEventListener('firebase-ready', () => resolve(), { once: true });
+    const t = setInterval(() => { if (window._db) { clearInterval(t); resolve(); } }, 100);
+  });
+}
+
+// ============================================================
 //  START GAME (host)
 // ============================================================
 async function startGame() {
   if (L.players.length < 3) { alert('Add at least 3 players!'); return; }
   if (L.prompts.length < 1) { alert('Add at least 1 prompt!'); return; }
 
-  L.roomCode = generateCode();
-  L.isHost = true;
+  const btn = document.querySelector('#screen-setup .btn-start');
+  if (btn) { btn.textContent = 'CONNECTING...'; btn.disabled = true; }
 
-  const initialState = {
-    phase: 'picking',       // picking | ranking | guessing | reveal
-    round: 1,
-    rankerIndex: 0,
-    promptIndex: 0,
-    players: L.players,
-    prompts: L.prompts,
-    trueRanking: [],
-    guesses: {},
-    chosenNames: [],
-  };
+  try {
+    await waitForFirebase();
 
-  await window._set(roomRef(), initialState);
+    L.roomCode = generateCode();
+    L.isHost = true;
 
-  showScreen('screen-host');
-  document.getElementById('host-room-code').textContent = L.roomCode;
-  subscribeHost();
+    const initialState = {
+      phase: 'picking',
+      round: 1,
+      rankerIndex: 0,
+      promptIndex: 0,
+      players: L.players,
+      prompts: L.prompts,
+      trueRanking: [],
+      guesses: {},
+      chosenNames: [],
+    };
+
+    await window._set(roomRef(), initialState);
+
+    showScreen('screen-host');
+    document.getElementById('host-room-code').textContent = L.roomCode;
+    subscribeHost();
+  } catch (err) {
+    console.error('Firebase error:', err);
+    alert('Could not connect. Check your internet and try again.\n' + err.message);
+    if (btn) { btn.textContent = 'START GAME'; btn.disabled = false; }
+  }
 }
 
 // ============================================================
@@ -174,20 +196,28 @@ async function joinRoom() {
   const code = document.getElementById('join-code-input').value.trim().toUpperCase();
   if (!code) return;
 
-  const snap = await window._get(window._ref(window._db, `rooms/${code}`));
-  if (!snap.exists()) {
-    document.getElementById('join-error').style.display = 'block';
-    return;
+  const btn = document.querySelector('#screen-landing .btn-add');
+  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+
+  try {
+    await waitForFirebase();
+    const snap = await window._get(window._ref(window._db, `rooms/${code}`));
+    if (!snap.exists()) {
+      document.getElementById('join-error').style.display = 'block';
+      if (btn) { btn.textContent = '→'; btn.disabled = false; }
+      return;
+    }
+    document.getElementById('join-error').style.display = 'none';
+    L.roomCode = code;
+    L.isHost = false;
+    L.myName = null;
+    L.submitted = false;
+    showScreen('screen-ctrl');
+    subscribeController();
+  } catch (err) {
+    alert('Could not connect. Check your internet and try again.');
+    if (btn) { btn.textContent = '→'; btn.disabled = false; }
   }
-
-  document.getElementById('join-error').style.display = 'none';
-  L.roomCode = code;
-  L.isHost = false;
-  L.myName = null;
-  L.submitted = false;
-
-  showScreen('screen-ctrl');
-  subscribeController();
 }
 
 // ============================================================
