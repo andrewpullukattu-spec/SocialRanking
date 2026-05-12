@@ -1,5 +1,5 @@
 // game.js — Rank It game logic
-
+ 
 // ============================================================
 //  STATE
 // ============================================================
@@ -18,11 +18,11 @@ const G = {
   rankingReady: false,
   chosenNames: new Set(),
 };
-
+ 
 function ranker() { return G.players[G.rankerIndex % G.players.length]; }
 function prompt()  { return G.prompts[G.promptIndex % G.prompts.length]; }
 function others()  { return G.players.filter(p => p !== ranker()); }
-
+ 
 // ============================================================
 //  SETUP — PLAYERS
 // ============================================================
@@ -36,20 +36,20 @@ function addPlayer() {
   inp.focus();
   renderPlayerTags();
 }
-
+ 
 function removePlayer(name) {
   G.players = G.players.filter(p => p !== name);
   delete G.scores[name];
   renderPlayerTags();
 }
-
+ 
 function renderPlayerTags() {
   document.getElementById('player-count').textContent = G.players.length;
   document.getElementById('player-tags').innerHTML = G.players.map(p =>
     `<div class="tag">${p}<span class="tag-remove" onclick="removePlayer('${esc(p)}')">&times;</span></div>`
   ).join('');
 }
-
+ 
 // ============================================================
 //  SETUP — PROMPTS
 // ============================================================
@@ -62,13 +62,13 @@ function addPrompt() {
   inp.focus();
   renderPromptChips();
 }
-
+ 
 function removePrompt(i) {
   G.prompts.splice(i, 1);
   renderPromptChips();
   renderBankButtons(); // refresh added state
 }
-
+ 
 function renderPromptChips() {
   document.getElementById('prompt-count').textContent = G.prompts.length;
   document.getElementById('prompt-chips').innerHTML = G.prompts.map((p, i) =>
@@ -78,24 +78,24 @@ function renderPromptChips() {
     </div>`
   ).join('');
 }
-
+ 
 // ============================================================
 //  PROMPT BANK MODAL
 // ============================================================
 let bankFilter = '';
-
+ 
 function openPromptBank() {
   document.getElementById('prompt-bank-modal').style.display = 'flex';
   document.getElementById('bank-search').value = '';
   bankFilter = '';
   renderBankCategories(PROMPT_BANK);
 }
-
+ 
 function closePromptBank(e) {
   if (e && e.target !== e.currentTarget) return;
   document.getElementById('prompt-bank-modal').style.display = 'none';
 }
-
+ 
 function filterBank() {
   bankFilter = document.getElementById('bank-search').value.toLowerCase();
   const filtered = PROMPT_BANK.map(cat => ({
@@ -104,7 +104,7 @@ function filterBank() {
   })).filter(cat => cat.prompts.length > 0);
   renderBankCategories(filtered);
 }
-
+ 
 function renderBankCategories(cats) {
   document.getElementById('bank-categories').innerHTML = cats.map(cat =>
     `<div class="bank-category">
@@ -121,11 +121,11 @@ function renderBankCategories(cats) {
     </div>`
   ).join('');
 }
-
+ 
 function renderBankButtons() {
   renderBankCategories(PROMPT_BANK);
 }
-
+ 
 function toggleBankPrompt(text) {
   if (G.prompts.includes(text)) {
     G.prompts = G.prompts.filter(p => p !== text);
@@ -135,7 +135,7 @@ function toggleBankPrompt(text) {
   renderPromptChips();
   filterBank();
 }
-
+ 
 // ============================================================
 //  START GAME
 // ============================================================
@@ -148,7 +148,7 @@ function startGame() {
     alert('Add at least 1 prompt — or browse the prompt bank!');
     return;
   }
-
+ 
   G.round = 1;
   G.rankerIndex = 0;
   G.promptIndex = 0;
@@ -159,42 +159,67 @@ function startGame() {
   G.rankingReady = false;
   G.chosenNames = new Set();
   G.players.forEach(p => G.scores[p] = 0);
-
+ 
   G.phase = 'selecting-name';
   showScreen('ctrl');
+  showSwitcher();
   renderController();
   renderHost();
 }
-
+ 
 function goSetup() {
   G.phase = 'setup';
+  document.getElementById('view-switcher').style.display = 'none';
   showScreen('setup');
 }
-
+ 
 // ============================================================
-//  SCREEN SWITCHING
+//  VIEW SWITCHER
 // ============================================================
+let currentView = 'ctrl'; // 'host' or 'ctrl'
+ 
+function toggleView() {
+  if (currentView === 'ctrl') {
+    currentView = 'host';
+    showScreen('host');
+    renderHost();
+    document.getElementById('switcher-btn').textContent = '📱 CONTROLLER';
+  } else {
+    currentView = 'ctrl';
+    showScreen('ctrl');
+    renderController();
+    document.getElementById('switcher-btn').textContent = '📺 HOST SCREEN';
+  }
+}
+ 
+function showSwitcher() {
+  document.getElementById('view-switcher').style.display = 'block';
+  document.getElementById('switcher-btn').textContent = '📺 HOST SCREEN';
+  currentView = 'ctrl';
+}
+ 
+ 
 function showScreen(name) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById('screen-' + name).classList.add('active');
 }
-
+ 
 // ============================================================
 //  HOST SCREEN
 // ============================================================
 function renderHost() {
   if (G.phase === 'setup') return;
-
+ 
   document.getElementById('host-round-num').textContent = G.round;
   document.getElementById('host-ranker-name').textContent = ranker() + ' is ranking';
   document.getElementById('host-prompt-text').textContent = prompt();
-
+ 
   const revealEl = document.getElementById('host-reveal');
   const statusEl = document.getElementById('host-status');
   const actionsEl = document.getElementById('host-actions');
-
+ 
   revealEl.style.display = 'none';
-
+ 
   if (G.phase === 'selecting-name' || G.phase === 'ranking') {
     statusEl.textContent = 'Pass the phone to ' + ranker() + '...';
     actionsEl.innerHTML = '';
@@ -216,10 +241,10 @@ function renderHost() {
       <button class="btn-host-action" onclick="nextRound()">NEXT ROUND →</button>
     `;
   }
-
+ 
   renderScoreboardPills();
 }
-
+ 
 function renderReveal() {
   document.getElementById('reveal-list').innerHTML = G.trueRanking.map((name, i) =>
     `<li class="reveal-item">
@@ -228,18 +253,18 @@ function renderReveal() {
     </li>`
   ).join('');
 }
-
+ 
 function renderScoreboardPills() {
   document.getElementById('scoreboard-players').innerHTML = G.players.map(p =>
     `<div class="score-pill ${p === ranker() ? 'is-ranker' : ''}">${esc(p)}</div>`
   ).join('');
 }
-
+ 
 function doReveal() {
   G.phase = 'reveal';
   renderHost();
 }
-
+ 
 function nextRound() {
   G.rankerIndex++;
   G.promptIndex++;
@@ -251,12 +276,14 @@ function nextRound() {
   G.rankingReady = false;
   G.chosenNames = new Set();
   G.phase = 'selecting-name';
-
+ 
+  currentView = 'ctrl';
+  document.getElementById('switcher-btn').textContent = '📺 HOST SCREEN';
   showScreen('ctrl');
   renderController();
   renderHost();
 }
-
+ 
 // ============================================================
 //  CONTROLLER SCREEN
 // ============================================================
@@ -264,22 +291,22 @@ function renderController() {
   // hide all panels
   ['ctrl-pick-name','ctrl-ranker','ctrl-waiting-ranker','ctrl-guesser','ctrl-done']
     .forEach(id => document.getElementById(id).style.display = 'none');
-
+ 
   document.getElementById('ctrl-round-pick').textContent = G.round;
-
+ 
   if (G.phase === 'selecting-name' || !G.myName) {
     showCtrlPanel('ctrl-pick-name');
     renderNameGrid();
     return;
   }
-
+ 
   if (G.submitted) {
     showCtrlPanel('ctrl-done');
     document.getElementById('ctrl-done-msg').textContent =
       G.myName === ranker() ? 'Ranking submitted!' : 'Guess submitted!';
     return;
   }
-
+ 
   if (G.myName === ranker()) {
     showCtrlPanel('ctrl-ranker');
     document.getElementById('ctrl-ranker-prompt').textContent = prompt();
@@ -296,33 +323,33 @@ function renderController() {
     }
   }
 }
-
+ 
 function showCtrlPanel(id) {
   document.getElementById(id).style.display = 'flex';
   document.getElementById(id).style.flexDirection = 'column';
 }
-
+ 
 function renderNameGrid() {
   document.getElementById('ctrl-name-grid').innerHTML = G.players.map(p =>
     `<button class="name-btn ${G.chosenNames.has(p) ? 'used' : ''}" onclick="selectName('${esc(p)}')">${esc(p)}</button>`
   ).join('');
 }
-
+ 
 function selectName(name) {
   G.myName = name;
   G.chosenNames.add(name);
   G.submitted = false;
-
+ 
   if (name === ranker()) {
     G.phase = 'ranking';
   } else {
     G.phase = G.rankingReady ? 'guessing' : 'guessing-wait';
   }
-
+ 
   renderController();
   renderHost();
 }
-
+ 
 function submitRanking() {
   const items = document.querySelectorAll('#ranker-sort-list .sort-item');
   G.trueRanking = Array.from(items).map(el => el.dataset.name);
@@ -338,7 +365,7 @@ function submitRanking() {
     }
   }, 100);
 }
-
+ 
 function submitGuess() {
   const items = document.querySelectorAll('#guesser-sort-list .sort-item');
   const guess = Array.from(items).map(el => el.dataset.name);
@@ -347,12 +374,12 @@ function submitGuess() {
   renderController();
   renderHost();
 }
-
+ 
 // ============================================================
 //  DRAG & DROP SORTABLE (mouse + touch)
 // ============================================================
 let dragSrc = null;
-
+ 
 function buildSortable(containerId, names) {
   const container = document.getElementById(containerId);
   container.innerHTML = names.map((name, i) =>
@@ -362,7 +389,7 @@ function buildSortable(containerId, names) {
       <span class="sort-name">${esc(name)}</span>
     </div>`
   ).join('');
-
+ 
   container.querySelectorAll('.sort-item').forEach(item => {
     // Mouse drag
     item.addEventListener('dragstart', () => {
@@ -390,28 +417,28 @@ function buildSortable(containerId, names) {
         updateRankNums(container);
       }
     });
-
+ 
     // Touch drag
     let touchOffsetY = 0;
     let ghostEl = null;
-
+ 
     item.addEventListener('touchstart', e => {
       dragSrc = item;
       const touch = e.touches[0];
       const rect = item.getBoundingClientRect();
       touchOffsetY = touch.clientY - rect.top;
-
+ 
       ghostEl = item.cloneNode(true);
       ghostEl.style.cssText = `position:fixed;z-index:9999;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.2);`;
       document.body.appendChild(ghostEl);
       item.classList.add('dragging');
     }, { passive: true });
-
+ 
     item.addEventListener('touchmove', e => {
       if (!ghostEl) return;
       const touch = e.touches[0];
       ghostEl.style.top = (touch.clientY - touchOffsetY) + 'px';
-
+ 
       const siblings = [...container.children].filter(c => c !== dragSrc);
       for (const sib of siblings) {
         const r = sib.getBoundingClientRect();
@@ -425,7 +452,7 @@ function buildSortable(containerId, names) {
         }
       }
     }, { passive: true });
-
+ 
     item.addEventListener('touchend', () => {
       if (ghostEl) { ghostEl.remove(); ghostEl = null; }
       item.classList.remove('dragging');
@@ -434,11 +461,11 @@ function buildSortable(containerId, names) {
     });
   });
 }
-
+ 
 function updateRankNums(container) {
   container.querySelectorAll('.sort-rank').forEach((el, i) => el.textContent = i + 1);
 }
-
+ 
 // ============================================================
 //  KEYBOARD SHORTCUTS
 // ============================================================
@@ -454,7 +481,7 @@ document.addEventListener('keydown', e => {
     if (e.key === 'n' || e.key === 'N') { if (G.phase === 'reveal') nextRound(); }
   }
 });
-
+ 
 // ============================================================
 //  UTILITY
 // ============================================================
@@ -466,7 +493,7 @@ function esc(str) {
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
 }
-
+ 
 // Also render host button in setup for convenience
 // (tab switching between screens)
 document.addEventListener('DOMContentLoaded', () => {
@@ -478,3 +505,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') addPrompt();
   });
 });
+ 
