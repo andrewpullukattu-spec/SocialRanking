@@ -1,8 +1,5 @@
-// game.js — Rank It with Firebase real-time rooms
+// game.js — Rank It with Firebase Realtime Database (compat SDK)
 
-// ============================================================
-//  LOCAL STATE (host only — players read from Firebase)
-// ============================================================
 const L = {
   players: [],
   prompts: [],
@@ -10,11 +7,19 @@ const L = {
   isHost: false,
   myName: null,
   submitted: false,
-  unsubscribe: null,   // Firebase listener teardown
+  listener: null,
 };
 
 // ============================================================
-//  UTILITIES
+//  DB HELPERS  (compat SDK uses firebase.database())
+// ============================================================
+function db() { return window._db; }
+function roomPath(sub) {
+  return db().ref('rooms/' + L.roomCode + (sub ? '/' + sub : ''));
+}
+
+// ============================================================
+//  UTILS
 // ============================================================
 function esc(str) {
   return String(str)
@@ -25,10 +30,6 @@ function esc(str) {
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-}
-
-function roomRef(path) {
-  return window._ref(window._db, `rooms/${L.roomCode}${path ? '/' + path : ''}`);
 }
 
 function generateCode() {
@@ -139,33 +140,21 @@ function toggleBankPrompt(text) {
 }
 
 // ============================================================
-//  FIREBASE READY GUARD
-// ============================================================
-function waitForFirebase() {
-  return new Promise(resolve => {
-    if (window._db) { resolve(); return; }
-    window.addEventListener('firebase-ready', () => resolve(), { once: true });
-    const t = setInterval(() => { if (window._db) { clearInterval(t); resolve(); } }, 100);
-  });
-}
-
-// ============================================================
 //  START GAME (host)
 // ============================================================
 async function startGame() {
   if (L.players.length < 3) { alert('Add at least 3 players!'); return; }
   if (L.prompts.length < 1) { alert('Add at least 1 prompt!'); return; }
 
-  const btn = document.querySelector('#screen-setup .btn-start');
-  if (btn) { btn.textContent = 'CONNECTING...'; btn.disabled = true; }
+  const btn = document.getElementById('start-btn');
+  btn.textContent = 'CONNECTING...';
+  btn.disabled = true;
 
   try {
-    await waitForFirebase();
-
     L.roomCode = generateCode();
     L.isHost = true;
 
-    const initialState = {
+    await roomPath().set({
       phase: 'picking',
       round: 1,
       rankerIndex: 0,
@@ -175,17 +164,17 @@ async function startGame() {
       trueRanking: [],
       guesses: {},
       chosenNames: [],
-    };
-
-    await window._set(roomRef(), initialState);
+    });
 
     showScreen('screen-host');
     document.getElementById('host-room-code').textContent = L.roomCode;
     subscribeHost();
+
   } catch (err) {
-    console.error('Firebase error:', err);
-    alert('Could not connect. Check your internet and try again.\n' + err.message);
-    if (btn) { btn.textContent = 'START GAME'; btn.disabled = false; }
+    console.error(err);
+    alert('Could not connect to Firebase:\n' + err.message);
+    btn.textContent = 'START GAME';
+    btn.disabled = false;
   }
 }
 
@@ -196,36 +185,43 @@ async function joinRoom() {
   const code = document.getElementById('join-code-input').value.trim().toUpperCase();
   if (!code) return;
 
-  const btn = document.querySelector('#screen-landing .btn-add');
-  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+  const btn = document.getElementById('join-btn');
+  btn.textContent = '...';
+  btn.disabled = true;
 
   try {
-    await waitForFirebase();
-    const snap = await window._get(window._ref(window._db, `rooms/${code}`));
+    const snap = await db().ref('rooms/' + code).once('value');
     if (!snap.exists()) {
       document.getElementById('join-error').style.display = 'block';
-      if (btn) { btn.textContent = '→'; btn.disabled = false; }
+      btn.textContent = '→';
+      btn.disabled = false;
       return;
     }
+
     document.getElementById('join-error').style.display = 'none';
     L.roomCode = code;
     L.isHost = false;
     L.myName = null;
     L.submitted = false;
+
     showScreen('screen-ctrl');
     subscribeController();
+
   } catch (err) {
-    alert('Could not connect. Check your internet and try again.');
-    if (btn) { btn.textContent = '→'; btn.disabled = false; }
+    console.error(err);
+    alert('Could not connect:\n' + err.message);
+    btn.textContent = '→';
+    btn.disabled = false;
   }
 }
 
 // ============================================================
-//  HOST — FIREBASE LISTENER
+//  HOST — listen to Firebase
 // ============================================================
 function subscribeHost() {
-  if (L.unsubscribe) L.unsubscribe();
-  L.unsubscribe = window._onValue(roomRef(), snap => {
+  if (L.listener) L.listener.off();
+  L.listener = roomPath();
+  L.listener.on('value', snap => {
     if (!snap.exists()) return;
     renderHostFromState(snap.val());
   });
@@ -239,30 +235,28 @@ function renderHostFromState(s) {
   document.getElementById('host-ranker-name').textContent = ranker + ' is ranking';
   document.getElementById('host-prompt-text').textContent = prompt;
 
-  const revealEl = document.getElementById('host-reveal');
-  const promptArea = document.getElementById('host-prompt-area');
-  const statusEl = document.getElementById('host-status');
+  const revealEl  = document.getElementById('host-reveal');
+  const statusEl  = document.getElementById('host-status');
   const actionsEl = document.getElementById('host-actions');
 
   revealEl.style.display = 'none';
-  promptArea.style.display = 'block';
 
   const guessCount = Object.keys(s.guesses || {}).length;
-  const needed = s.players.length - 1;
+  const needed     = s.players.length - 1;
+  const chosen     = s.chosenNames || [];
 
   if (s.phase === 'picking') {
-    statusEl.textContent = `${(s.chosenNames||[]).length} of ${s.players.length} players picked their name`;
+    statusEl.textContent = chosen.length + ' of ' + s.players.length + ' players picked their name';
     actionsEl.innerHTML = '';
   } else if (s.phase === 'ranking') {
     statusEl.textContent = 'Waiting for ' + ranker + ' to submit their ranking...';
     actionsEl.innerHTML = '';
   } else if (s.phase === 'guessing') {
-    statusEl.textContent = `${guessCount} of ${needed} guesses submitted`;
+    statusEl.textContent = guessCount + ' of ' + needed + ' guesses submitted';
     actionsEl.innerHTML = `
       <button class="btn-host-secondary" onclick="hostReveal()">Reveal early</button>
       <button class="btn-host-action" onclick="hostReveal()">REVEAL →</button>`;
   } else if (s.phase === 'reveal') {
-    promptArea.style.display = 'block';
     statusEl.textContent = '';
     revealEl.style.display = 'block';
     document.getElementById('reveal-list').innerHTML = (s.trueRanking || []).map((name, i) =>
@@ -276,21 +270,19 @@ function renderHostFromState(s) {
       <button class="btn-host-action" onclick="hostNextRound()">NEXT ROUND →</button>`;
   }
 
-  // Players joined pills
-  const chosen = s.chosenNames || [];
   document.getElementById('scoreboard-players').innerHTML = s.players.map(p =>
     `<div class="score-pill ${chosen.includes(p) ? 'is-ranker' : ''}">${esc(p)}</div>`
   ).join('');
 }
 
-async function hostReveal() {
-  await window._update(roomRef(), { phase: 'reveal' });
+function hostReveal() {
+  roomPath().update({ phase: 'reveal' });
 }
 
 async function hostNextRound() {
-  const snap = await window._get(roomRef());
+  const snap = await roomPath().once('value');
   const s = snap.val();
-  await window._update(roomRef(), {
+  roomPath().update({
     phase: 'picking',
     round: s.round + 1,
     rankerIndex: s.rankerIndex + 1,
@@ -302,27 +294,28 @@ async function hostNextRound() {
 }
 
 function goSetup() {
-  if (L.unsubscribe) { L.unsubscribe(); L.unsubscribe = null; }
+  if (L.listener) { L.listener.off(); L.listener = null; }
   showScreen('screen-landing');
 }
 
 // ============================================================
-//  CONTROLLER — FIREBASE LISTENER
+//  CONTROLLER — listen to Firebase
 // ============================================================
 function subscribeController() {
-  if (L.unsubscribe) L.unsubscribe();
-  L.unsubscribe = window._onValue(roomRef(), snap => {
+  if (L.listener) L.listener.off();
+  L.listener = roomPath();
+  L.listener.on('value', snap => {
     if (!snap.exists()) return;
     renderCtrlFromState(snap.val());
   });
 }
 
 function renderCtrlFromState(s) {
-  const ranker = s.players[s.rankerIndex % s.players.length];
-  const prompt = s.prompts[s.promptIndex % s.prompts.length];
+  const ranker   = s.players[s.rankerIndex % s.players.length];
+  const prompt   = s.prompts[s.promptIndex % s.prompts.length];
   const isRanker = L.myName === ranker;
+  const chosen   = s.chosenNames || [];
 
-  // Detect round change — reset local submitted flag
   if (s.phase === 'picking') {
     L.submitted = false;
     L.myName = null;
@@ -331,25 +324,18 @@ function renderCtrlFromState(s) {
   hideAllCtrlPanels();
   document.getElementById('ctrl-round-pick').textContent = s.round;
 
-  // No name chosen yet
   if (!L.myName) {
     show('ctrl-pick-name');
     document.getElementById('ctrl-name-grid').innerHTML = s.players.map(p => {
-      const taken = (s.chosenNames || []).includes(p);
+      const taken = chosen.includes(p);
       return `<button class="name-btn ${taken ? 'used' : ''}" onclick="selectName('${esc(p)}')">${esc(p)}</button>`;
     }).join('');
     return;
   }
 
-  // Already submitted — show done or waiting for next round
   if (L.submitted) {
-    if (s.phase === 'reveal' || s.phase === 'picking') {
-      show('ctrl-next-round-wait');
-    } else {
-      show('ctrl-done');
-      document.getElementById('ctrl-done-msg').textContent =
-        isRanker ? 'Ranking locked in!' : 'Guess submitted!';
-    }
+    show(s.phase === 'reveal' || s.phase === 'picking' ? 'ctrl-next-round-wait' : 'ctrl-done');
+    document.getElementById('ctrl-done-msg').textContent = isRanker ? 'Ranking locked in!' : 'Guess submitted!';
     return;
   }
 
@@ -378,42 +364,36 @@ function renderCtrlFromState(s) {
 }
 
 async function selectName(name) {
-  const snap = await window._get(roomRef('chosenNames'));
+  const snap = await roomPath('chosenNames').once('value');
   let chosen = snap.val() || [];
-  if (chosen.includes(name)) return; // someone just grabbed it
+  if (chosen.includes(name)) return;
 
   L.myName = name;
   chosen.push(name);
-  await window._update(roomRef(), { chosenNames: chosen });
 
-  // If this person IS the ranker and everyone has chosen, move to ranking
-  const stateSnap = await window._get(roomRef());
+  const stateSnap = await roomPath().once('value');
   const s = stateSnap.val();
   const ranker = s.players[s.rankerIndex % s.players.length];
-  if (name === ranker) {
-    await window._update(roomRef(), { phase: 'ranking' });
-  }
+  const updates = { chosenNames: chosen };
+  if (name === ranker) updates.phase = 'ranking';
+  await roomPath().update(updates);
 }
 
 async function submitRanking() {
   const items = document.querySelectorAll('#ranker-sort-list .sort-item');
   const ranking = Array.from(items).map(el => el.dataset.name);
   L.submitted = true;
-  await window._update(roomRef(), {
-    trueRanking: ranking,
-    phase: 'guessing'
-  });
+  await roomPath().update({ trueRanking: ranking, phase: 'guessing' });
 }
 
 async function submitGuess() {
   const items = document.querySelectorAll('#guesser-sort-list .sort-item');
   const guess = Array.from(items).map(el => el.dataset.name);
   L.submitted = true;
-
-  const snap = await window._get(roomRef('guesses'));
+  const snap = await roomPath('guesses').once('value');
   const guesses = snap.val() || {};
   guesses[L.myName] = guess;
-  await window._update(roomRef(), { guesses });
+  await roomPath().update({ guesses });
 }
 
 // ============================================================
@@ -431,13 +411,12 @@ function show(id) {
 }
 
 // ============================================================
-//  DRAG & DROP SORTABLE
+//  DRAG & DROP SORTABLE (mouse + touch)
 // ============================================================
 let dragSrc = null;
 
 function buildSortable(containerId, names) {
   const container = document.getElementById(containerId);
-  // Only rebuild if names changed (avoid resetting mid-drag)
   const existing = Array.from(container.querySelectorAll('.sort-item')).map(el => el.dataset.name);
   if (existing.join(',') === names.join(',')) return;
 
@@ -475,7 +454,7 @@ function buildSortable(containerId, names) {
       }
     });
 
-    // Touch
+    // Touch support
     let ghostEl = null, touchOffsetY = 0;
     item.addEventListener('touchstart', e => {
       dragSrc = item;
@@ -483,7 +462,7 @@ function buildSortable(containerId, names) {
       const rect = item.getBoundingClientRect();
       touchOffsetY = touch.clientY - rect.top;
       ghostEl = item.cloneNode(true);
-      ghostEl.style.cssText = `position:fixed;z-index:9999;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.2);`;
+      ghostEl.style.cssText = `position:fixed;z-index:9999;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;opacity:0.85;pointer-events:none;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.18);`;
       document.body.appendChild(ghostEl);
       item.classList.add('dragging');
     }, { passive: true });
