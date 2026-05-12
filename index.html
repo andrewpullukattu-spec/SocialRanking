@@ -25,7 +25,7 @@
             <input type="text" id="join-code-input" placeholder="Room code..."
               style="text-transform:uppercase;letter-spacing:0.15em;font-size:20px;text-align:center"
               maxlength="6" oninput="this.value=this.value.toUpperCase()" />
-            <button class="btn-add" onclick="joinRoom()">→</button>
+            <button class="btn-add" id="join-btn" onclick="joinRoom()">→</button>
           </div>
           <p id="join-error" style="color:#c0392b;font-size:13px;margin-top:8px;display:none">Room not found. Check the code and try again.</p>
         </div>
@@ -68,7 +68,7 @@
         </div>
         <div style="display:flex;gap:10px">
           <button class="btn-ghost" style="flex:0 0 auto" onclick="showScreen('screen-landing')">← Back</button>
-          <button class="btn-start" style="flex:1" onclick="startGame()">START GAME</button>
+          <button class="btn-start" id="start-btn" style="flex:1" onclick="startGame()">START GAME</button>
         </div>
       </div>
     </div>
@@ -166,13 +166,11 @@
     </div>
   </div>
 
-  <!-- Firebase via ESM -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-    import { getDatabase, ref, set, get, update, onValue, remove }
-      from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-    const firebaseConfig = {
+  <!-- Firebase (compat = regular scripts, no module issues) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script>
+    firebase.initializeApp({
       apiKey: "AIzaSyA0ZynAFHOuqrbeQzFfH8nFK-hCx6pced4",
       authDomain: "socialr-a9cdc.firebaseapp.com",
       databaseURL: "https://socialr-a9cdc-default-rtdb.europe-west1.firebasedatabase.app",
@@ -180,20 +178,9 @@
       storageBucket: "socialr-a9cdc.firebasestorage.app",
       messagingSenderId: "858019006821",
       appId: "1:858019006821:web:92061d0d0a962eec5a398c"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-
-    window._db = db;
-    window._ref = ref;
-    window._set = set;
-    window._get = get;
-    window._update = update;
-    window._onValue = onValue;
-    window._remove = remove;
+    });
+    window._db = firebase.database();
     window._firebaseReady = true;
-    window.dispatchEvent(new Event('firebase-ready'));
   </script>
 
   <script src="prompts.js"></script>
