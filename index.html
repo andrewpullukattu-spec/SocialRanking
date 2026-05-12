@@ -10,7 +10,7 @@
 </head>
 <body>
 
-  <!-- LANDING -->
+  <!-- ═══════════════ LANDING ═══════════════ -->
   <div id="screen-landing" class="screen active">
     <div class="setup-layout">
       <div class="setup-hero">
@@ -19,9 +19,9 @@
       </div>
       <div class="setup-form">
         <button class="btn-start" onclick="showScreen('screen-setup')">HOST A GAME</button>
-        <div style="margin-top:1.5rem; text-align:center">
-          <p style="font-size:13px; color:var(--gray); margin-bottom:1rem">— or join an existing game —</p>
-          <div class="input-row" style="max-width:300px; margin:0 auto">
+        <div style="margin-top:1.5rem;text-align:center">
+          <p style="font-size:13px;color:var(--gray);margin-bottom:1rem">— or join as the phone controller —</p>
+          <div class="input-row" style="max-width:300px;margin:0 auto">
             <input type="text" id="join-code-input" placeholder="Room code..."
               style="text-transform:uppercase;letter-spacing:0.15em;font-size:20px;text-align:center"
               maxlength="6" oninput="this.value=this.value.toUpperCase()" />
@@ -33,7 +33,7 @@
     </div>
   </div>
 
-  <!-- SETUP -->
+  <!-- ═══════════════ SETUP ═══════════════ -->
   <div id="screen-setup" class="screen">
     <div class="setup-layout">
       <div class="setup-hero">
@@ -61,10 +61,10 @@
           <div class="prompt-chips" id="prompt-chips"></div>
         </section>
         <div class="how-to">
-          <div class="how-step"><span class="step-n">1</span><span>Host starts — a room code appears on the host screen</span></div>
-          <div class="how-step"><span class="step-n">2</span><span>Players join on their phones by entering the code</span></div>
-          <div class="how-step"><span class="step-n">3</span><span>The Ranker secretly ranks everyone — others guess</span></div>
-          <div class="how-step"><span class="step-n">4</span><span>Reveal together — see who knows each other best</span></div>
+          <div class="how-step"><span class="step-n">1</span><span>Laptop hosts — room code appears for the phone to join</span></div>
+          <div class="how-step"><span class="step-n">2</span><span>Phone → Ranker ranks secretly, then passes to the group</span></div>
+          <div class="how-step"><span class="step-n">3</span><span>Group agrees on a guess together and submits</span></div>
+          <div class="how-step"><span class="step-n">4</span><span>Host reveals each position one by one — drama ensues</span></div>
         </div>
         <div style="display:flex;gap:10px">
           <button class="btn-ghost" style="flex:0 0 auto" onclick="showScreen('screen-landing')">← Back</button>
@@ -74,7 +74,7 @@
     </div>
   </div>
 
-  <!-- PROMPT BANK MODAL -->
+  <!-- ═══════════════ PROMPT BANK MODAL ═══════════════ -->
   <div id="prompt-bank-modal" class="modal-overlay" style="display:none" onclick="closePromptBank(event)">
     <div class="modal-box">
       <div class="modal-header">
@@ -88,9 +88,11 @@
     </div>
   </div>
 
-  <!-- HOST SCREEN -->
+  <!-- ═══════════════ HOST SCREEN ═══════════════ -->
   <div id="screen-host" class="screen">
     <div class="host-layout">
+
+      <!-- Top bar -->
       <div class="host-top-bar">
         <div class="host-logo">RANK IT</div>
         <div class="host-round-info">Round <span id="host-round-num">1</span></div>
@@ -102,71 +104,101 @@
           <button class="btn-ghost-sm" onclick="goSetup()">← Setup</button>
         </div>
       </div>
+
+      <!-- Main area -->
       <div class="host-main">
-        <div class="host-prompt-area" id="host-prompt-area">
+
+        <!-- Waiting for phone to join -->
+        <div id="host-waiting-join" style="text-align:center">
+          <div style="font-size:13px;letter-spacing:0.15em;color:rgba(255,255,255,0.4);margin-bottom:0.5rem">WAITING FOR PHONE</div>
+          <div style="font-family:var(--font-display);font-size:clamp(80px,15vw,140px);letter-spacing:0.2em;color:var(--accent)" id="host-big-code">——</div>
+          <div style="font-size:15px;color:rgba(255,255,255,0.4)">Open the game on a phone and enter this code</div>
+        </div>
+
+        <!-- Active prompt display -->
+        <div id="host-prompt-area" style="display:none;text-align:center;max-width:800px;width:100%">
           <div class="ranker-pill" id="host-ranker-name">— is ranking</div>
           <div class="host-prompt-text" id="host-prompt-text">—</div>
           <div class="host-status" id="host-status"></div>
         </div>
-        <div class="host-reveal" id="host-reveal" style="display:none">
-          <div class="reveal-title">THE RANKING</div>
+
+        <!-- Reveal area -->
+        <div id="host-reveal-area" style="display:none;width:100%;max-width:640px">
+          <div class="reveal-title" id="reveal-title">THE RANKING</div>
+          <!-- Revealed positions stack up here -->
           <ol class="reveal-list" id="reveal-list"></ol>
+          <!-- Next unrevealed slot teaser -->
+          <div id="reveal-next-slot" class="reveal-item reveal-hidden" style="display:none">
+            <span class="reveal-rank" id="reveal-next-num">?</span>
+            <span class="reveal-name" style="color:rgba(255,255,255,0.2)">???</span>
+          </div>
         </div>
+
       </div>
+
+      <!-- Footer -->
       <div class="host-footer">
         <div class="host-scoreboard-wrap">
-          <div class="scoreboard-label">PLAYERS JOINED</div>
+          <div class="scoreboard-label">PLAYERS</div>
           <div class="scoreboard-row" id="scoreboard-players"></div>
         </div>
         <div class="host-actions" id="host-actions"></div>
       </div>
+
     </div>
   </div>
 
-  <!-- CONTROLLER -->
+  <!-- ═══════════════ CONTROLLER ═══════════════ -->
   <div id="screen-ctrl" class="screen">
     <div class="ctrl-layout">
-      <div class="ctrl-panel" id="ctrl-pick-name">
+
+      <!-- Waiting for round to start -->
+      <div class="ctrl-panel" id="ctrl-idle">
         <div class="ctrl-logo">RANK IT</div>
-        <p class="ctrl-subtitle">Round <span id="ctrl-round-pick">1</span> — Who are you?</p>
-        <div class="ctrl-name-grid" id="ctrl-name-grid"></div>
+        <p class="ctrl-subtitle">Connected! Waiting for host...</p>
+        <div class="waiting-icon" style="margin-top:2rem">🎮</div>
       </div>
+
+      <!-- Ranker: pick who you are -->
+      <div class="ctrl-panel" id="ctrl-ranker-pick" style="display:none">
+        <div class="ctrl-logo">RANK IT</div>
+        <p class="ctrl-subtitle">Who is ranking this round?</p>
+        <div class="ctrl-name-grid" id="ctrl-ranker-name-grid"></div>
+      </div>
+
+      <!-- Ranker: rank secretly -->
       <div class="ctrl-panel" id="ctrl-ranker" style="display:none">
         <div class="ctrl-top">
-          <div class="your-badge">You're ranking <i>everyone</i></div>
+          <div class="your-badge" id="ctrl-ranker-you-badge">You're ranking everyone</div>
           <div class="ctrl-prompt" id="ctrl-ranker-prompt"></div>
         </div>
-        <p class="drag-hint">Drag to rank · #1 is top</p>
+        <p class="drag-hint">Drag to rank · #1 at the top</p>
         <div class="sort-list" id="ranker-sort-list"></div>
-        <button class="btn-submit" onclick="submitRanking()">SUBMIT RANKING</button>
+        <button class="btn-submit" onclick="submitRanking()">LOCK IN RANKING</button>
       </div>
-      <div class="ctrl-panel" id="ctrl-waiting-ranker" style="display:none">
-        <div class="waiting-icon">⏳</div>
-        <p class="waiting-msg">Waiting for <strong id="ctrl-wait-ranker-name"></strong> to submit their ranking...</p>
-      </div>
+
+      <!-- Guessers: group agrees together -->
       <div class="ctrl-panel" id="ctrl-guesser" style="display:none">
         <div class="ctrl-top">
-          <div class="your-badge">Guess <strong id="ctrl-guesser-ranker-name"></strong>'s ranking</div>
+          <div class="your-badge" id="ctrl-guess-badge">Agree on a group guess</div>
           <div class="ctrl-prompt" id="ctrl-guesser-prompt"></div>
         </div>
-        <p class="drag-hint">Drag to reorder · who did they rank #1?</p>
+        <p class="drag-hint">Discuss & drag together · #1 at the top</p>
         <div class="sort-list" id="guesser-sort-list"></div>
-        <button class="btn-submit" onclick="submitGuess()">SUBMIT GUESS</button>
+        <button class="btn-submit" onclick="submitGuess()">SUBMIT GROUP GUESS</button>
       </div>
+
+      <!-- Done — waiting for host to reveal -->
       <div class="ctrl-panel" id="ctrl-done" style="display:none">
         <div class="done-icon">✓</div>
         <p class="done-msg" id="ctrl-done-msg">Submitted!</p>
-        <p class="done-sub">Check the host screen</p>
+        <p class="done-sub">Watch the host screen for the reveal</p>
       </div>
-      <div class="ctrl-panel" id="ctrl-next-round-wait" style="display:none">
-        <div class="waiting-icon">🎉</div>
-        <p class="waiting-msg">Round over!</p>
-        <p class="done-sub">Wait for the host to start the next round...</p>
-      </div>
+
     </div>
   </div>
 
-  <!-- Firebase (compat = regular scripts, no module issues) -->
+  <!-- Firebase compat (regular scripts, load in order) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script>
@@ -180,7 +212,6 @@
       appId: "1:858019006821:web:92061d0d0a962eec5a398c"
     });
     window._db = firebase.database();
-    window._firebaseReady = true;
   </script>
 
   <script src="prompts.js"></script>
